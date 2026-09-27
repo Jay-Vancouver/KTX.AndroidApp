@@ -4,4 +4,6 @@
     <string name="error_title">Can\'t connect</string>
     <string name="error_message">Check your internet connection and try again.</string>
     <string name="retry">Try again</string>
+    <string name="tracking_channel">Location sharing</string>
+    <string name="tracking_notification">KTX: Sending location</string>
 </resources>

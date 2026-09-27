@@ -3,4 +3,6 @@
     <string name="error_title">연결할 수 없습니다</string>
     <string name="error_message">인터넷 연결을 확인한 뒤 다시 시도해 주세요.</string>
     <string name="retry">다시 시도</string>
+    <string name="tracking_channel">위치 공유</string>
+    <string name="tracking_notification">KTX: 위치 전송 중</string>
 </resources>

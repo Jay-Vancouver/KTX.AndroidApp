@@ -114,11 +114,26 @@ class MainActivity : AppCompatActivity() {
         if (savedInstanceState == null || webView.restoreState(savedInstanceState) == null) {
             webView.loadUrl(appLinkUrl(intent) ?: WebHosts.startUrl)
         }
+        handleDebugTracking(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         appLinkUrl(intent)?.let { webView.loadUrl(it) }
+        handleDebugTracking(intent)
+    }
+
+    /**
+     * Debug builds only, until the web bridge exists:
+     * adb shell am start -n com.ktxtransport.driver/.MainActivity --es debug_tracking start
+     *     --es phone 6045551234 --es url http://127.0.0.1:8099/gps
+     */
+    private fun handleDebugTracking(intent: Intent?) {
+        if (!BuildConfig.DEBUG) return
+        when (intent?.getStringExtra("debug_tracking")) {
+            "start" -> LocationService.start(this, intent.getStringExtra("phone"), intent.getStringExtra("url"))
+            "stop" -> LocationService.stop(this)
+        }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -129,6 +144,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         webView.onResume()
+        FixUploader.flush(this) // positions left over from a stopped or killed service
     }
 
     override fun onPause() {

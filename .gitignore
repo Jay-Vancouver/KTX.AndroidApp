@@ -37,5 +37,5 @@ output-metadata.json
 Thumbs.db
 desktop.ini
 
-# Logs
+# Logs (including tools/gps_received.log)
 *.log

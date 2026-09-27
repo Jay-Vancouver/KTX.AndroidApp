@@ -51,6 +51,11 @@ Built with command-line tools only (JDK 17, Android SDK cmdline-tools, Gradle wr
 8. Release signing (keystore outside repo; path/passwords in local gradle.properties or env vars) + backup notes
 9. Device test checklist docs/TEST.md
 
+## Testing location sending without the production server
+- `tools/gps_receiver.ps1` logs OsmAnd POSTs on `http://127.0.0.1:8099/` to `tools/gps_received.log`; `adb reverse tcp:8099 tcp:8099` lets the phone reach it (debug builds allow cleartext to localhost only).
+- Debug builds accept `adb shell am start -n com.ktxtransport.driver/.MainActivity --es debug_tracking start --es phone 6045550100 --es url http://127.0.0.1:8099/gps` (and `debug_tracking stop`) in place of the web bridge.
+- Offline queue: `adb reverse --remove tcp:8099`, wait, re-add; queued fixes arrive in order.
+
 ## References
 - TMS repo: WSL `/home/tms_user/ktx/tms` (`\\wsl.localhost\Ubuntu-24.04\home\tms_user\ktx\tms`): `app/gps/service.py`, `app/gps/ingest.py`, `app/routers/driver_pages.py`, `app/templates/driver/`, `docs/TRACKING_PLAN.md`, `docs/manual/`.
 - Identifier = driver phone, 10 digits (leading 1 removed).
