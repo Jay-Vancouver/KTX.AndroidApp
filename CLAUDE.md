@@ -19,6 +19,7 @@ Full spec: [ktxhybridapp.txt](ktxhybridapp.txt). This file is a summary of secti
 Kotlin, minSdk 26, targetSdk 34, package `com.ktxtransport.driver`, app name "KTX Driver".
 Built with command-line tools only (JDK 17, Android SDK cmdline-tools, Gradle wrapper, adb) — see [docs/SETUP.md](docs/SETUP.md).
 
+   **Host note (verified on device 2026-09-27):** driver.withktx.com redirects to `https://www.withktx.com/driver/`, and the server builds SMS login links from the request host (`/driver/s/<token>`). So App Links cover both `driver.withktx.com` and `www.withktx.com/driver/`, and the bridge restriction (item 3) must allow `www.withktx.com` pages under `/driver/` as well as `driver.withktx.com`.
 1. **WebView screen** — loads https://driver.withktx.com; persistent cookies (6-month login), camera permission delegation, file chooser, back = WebView history, external links open in browser, User-Agent suffix `KTXDriverApp/<version>`, App Links (autoVerify) for driver.withktx.com.
 2. **Location foreground service** (`foregroundServiceType="location"`) — FusedLocationProviderClient, fallback LocationManager; 60 s high-accuracy while tracking, 5-min heartbeat when stationary.
    - Sends OsmAnd format: `POST <url>` form fields `id` (10-digit phone), `lat`, `lon`, `timestamp` (UTC epoch s), `speed` (knots), `bearing`, `altitude`, `accuracy`, `batt` (%). Empty 200 response.

@@ -35,12 +35,20 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- SMS login links. Verification needs /.well-known/assetlinks.json on the server. -->
+            <!-- SMS login links. driver.withktx.com redirects to www.withktx.com/driver/, and the
+                 server builds the SMS link from the request host, so both must open the app.
+                 Verification needs /.well-known/assetlinks.json on both hosts. -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="driver.withktx.com" />
+            </intent-filter>
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="www.withktx.com" android:pathPrefix="/driver/" />
             </intent-filter>
         </activity>
 

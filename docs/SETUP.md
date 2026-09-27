@@ -86,4 +86,9 @@ sdkmanager --list_installed
 adb install -r app\build\outputs\apk\debug\app-debug.apk
 ```
 
-폰은 설정 → 휴대전화 정보 → 빌드 번호 7번 탭 → 개발자 옵션 → USB 디버깅을 켠 뒤 USB로 연결한다.
+폰에서 USB 디버깅을 켠 뒤 USB로 연결한다.
+
+- 삼성(One UI): 설정 → 휴대전화 정보 → 소프트웨어 정보 → 빌드번호 7번 탭 → 설정 → 개발자 옵션 → USB 디버깅
+- 그 밖의 폰: 설정 → 휴대전화 정보 → 빌드 번호 7번 탭 → 시스템 → 개발자 옵션 → USB 디버깅
+- 연결하면 폰에 "USB 디버깅 허용" 창이 뜬다. "이 컴퓨터에서 항상 허용"을 체크하고 허용한다.
+- `adb devices`에 기기가 안 보이고 Windows 장치 관리자에 폰 이름이 휴대용 장치(MTP)로만 보이면 USB 디버깅이 꺼진 상태다.
