@@ -40,6 +40,16 @@ class MainActivity : AppCompatActivity() {
 
     private var mainFrameError = false
 
+    /** Whether the page in the main frame may use the KtxAndroidApp bridge (read on the JavaBridge thread). */
+    @Volatile
+    var bridgeAllowed = false
+        private set
+
+    private val permissionFlow = PermissionFlow(this) {
+        LocationService.resumeIfTracking(this)
+        dispatchStatus()
+    }
+
     // Pending WebView callbacks waiting on a runtime permission or picker result.
     private var pendingPermissionRequest: PermissionRequest? = null
     private var pendingGeolocation: Pair<String, GeolocationPermissions.Callback>? = null
@@ -103,6 +113,7 @@ class MainActivity : AppCompatActivity() {
         webView.webViewClient = AppWebViewClient()
         webView.webChromeClient = AppWebChromeClient()
         webView.setDownloadListener { url, _, _, _, _ -> openExternal(Uri.parse(url)) }
+        webView.addJavascriptInterface(KtxBridge(this), KtxBridge.NAME)
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -145,6 +156,8 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         webView.onResume()
         FixUploader.flush(this) // positions left over from a stopped or killed service
+        if (!LocationService.isRunning) LocationService.resumeIfTracking(this)
+        dispatchStatus() // the driver may be back from a settings screen
     }
 
     override fun onPause() {
@@ -163,6 +176,18 @@ class MainActivity : AppCompatActivity() {
         if (intent?.action != Intent.ACTION_VIEW) return null
         val uri = intent.data
         return if (WebHosts.isAppUrl(uri)) uri.toString() else null
+    }
+
+    /** Called by KtxAndroidApp.requestPermissions() and startTracking() without location. */
+    fun startPermissionFlow() = permissionFlow.start()
+
+    /** Tells the page that permissions or tracking may have changed: window event "ktxappstatus". */
+    private fun dispatchStatus() {
+        if (!bridgeAllowed) return
+        val json = KtxBridge.statusJson(this)
+        webView.evaluateJavascript(
+            "window.dispatchEvent(new CustomEvent('${KtxBridge.STATUS_EVENT}', {detail: $json}));", null
+        )
     }
 
     private fun retry() {
@@ -293,8 +318,14 @@ class MainActivity : AppCompatActivity() {
         }
 
         override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
+            bridgeAllowed = WebHosts.isBridgeUrl(url)
             mainFrameError = false
             errorView.visibility = View.GONE
+        }
+
+        // Also covers history.pushState and back/forward within the page.
+        override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
+            bridgeAllowed = WebHosts.isBridgeUrl(url)
         }
 
         override fun onPageFinished(view: WebView, url: String?) {

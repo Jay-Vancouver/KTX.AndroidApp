@@ -18,4 +18,17 @@ object WebHosts {
 
     fun isAppUrl(uri: Uri?): Boolean =
         uri != null && uri.scheme == "https" && isAppHost(uri.host)
+
+    /**
+     * Pages allowed to use the KtxAndroidApp bridge: the driver site only.
+     * driver.withktx.com redirects to www.withktx.com/driver/, so both count.
+     */
+    fun isBridgeUrl(url: String?): Boolean {
+        val uri = url?.let(Uri::parse) ?: return false
+        if (uri.scheme != "https") return false
+        val host = uri.host?.lowercase() ?: return false
+        val path = uri.path.orEmpty()
+        return host == "driver.withktx.com" ||
+            (host == "www.withktx.com" && (path == "/driver" || path.startsWith("/driver/")))
+    }
 }

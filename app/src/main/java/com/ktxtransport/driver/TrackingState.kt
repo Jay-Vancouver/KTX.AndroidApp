@@ -40,10 +40,18 @@ class TrackingState(context: Context) {
             return digits.takeIf { it.length == 10 }
         }
 
-        /** https only; debug builds also accept http so a local test receiver can be used. */
+        /**
+         * https on a withktx.com host (www.withktx.com/gps today, gps.withktx.com later).
+         * Debug builds also accept http://127.0.0.1 / localhost for a local test receiver.
+         */
         fun isUsableUrl(url: String?): Boolean {
-            val u = url.orEmpty().trim().lowercase()
-            return u.startsWith("https://") || (BuildConfig.DEBUG && u.startsWith("http://"))
+            val uri = android.net.Uri.parse(url.orEmpty().trim())
+            val host = uri.host?.lowercase()
+            return when (uri.scheme?.lowercase()) {
+                "https" -> WebHosts.isAppHost(host)
+                "http" -> BuildConfig.DEBUG && (host == "127.0.0.1" || host == "localhost")
+                else -> false
+            }
         }
     }
 }

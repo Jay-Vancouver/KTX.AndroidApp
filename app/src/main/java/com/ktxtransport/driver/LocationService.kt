@@ -1,12 +1,10 @@
 package com.ktxtransport.driver
 
-import android.Manifest
 import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.location.Location
 import android.location.LocationListener
@@ -150,7 +148,7 @@ class LocationService : Service() {
 
     @SuppressLint("MissingPermission", "WakelockTimeout")
     private fun startUpdates() {
-        if (!hasLocationPermission()) {
+        if (!AppPermissions.hasLocation(this)) {
             stopSelf()
             return
         }
@@ -192,12 +190,6 @@ class LocationService : Service() {
 
         handler.postDelayed(heartbeat, CHECK_MS)
     }
-
-    private fun hasLocationPermission(): Boolean =
-        ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) ==
-            PackageManager.PERMISSION_GRANTED ||
-            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) ==
-            PackageManager.PERMISSION_GRANTED
 
     private fun onFix(location: Location) {
         val first = lastQueuedAt == 0L
@@ -255,7 +247,10 @@ class LocationService : Service() {
         var isRunning = false
             private set
 
-        /** Saves the settings and starts the service. False when phone or url is unusable. */
+        /**
+         * Saves the settings as tracking-on and starts the service if location is allowed
+         * (otherwise it starts from resumeIfTracking once it is). False when phone or url is unusable.
+         */
         fun start(context: Context, phone: String?, url: String?): Boolean {
             val digits = TrackingState.normalizePhone(phone) ?: return false
             if (!TrackingState.isUsableUrl(url)) return false
@@ -264,7 +259,7 @@ class LocationService : Service() {
                 this.url = url!!.trim()
                 tracking = true
             }
-            ContextCompat.startForegroundService(context, Intent(context, LocationService::class.java))
+            resumeIfTracking(context)
             return true
         }
 
@@ -273,9 +268,9 @@ class LocationService : Service() {
             context.stopService(Intent(context, LocationService::class.java))
         }
 
-        /** After a reboot or an app update: resume if tracking was on. */
+        /** After a reboot, an app update, a permission grant or opening the app: resume if tracking is on. */
         fun resumeIfTracking(context: Context) {
-            if (!TrackingState(context).tracking) return
+            if (!TrackingState(context).tracking || !AppPermissions.hasLocation(context)) return
             try {
                 ContextCompat.startForegroundService(context, Intent(context, LocationService::class.java))
             } catch (e: IllegalStateException) {

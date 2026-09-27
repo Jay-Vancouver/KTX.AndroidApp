@@ -27,8 +27,10 @@ Built with command-line tools only (JDK 17, Android SDK cmdline-tools, Gradle wr
    - Persistent notification "KTX: 위치 전송 중" that opens the app; restart on BOOT_COMPLETED if tracking was on.
    - State (on/off, phone, server URL, last sent) in SharedPreferences. The URL comes from `startTracking()` — never hard-code it.
 3. **JS bridge** `KtxAndroidApp` (only exposed to pages on driver.withktx.com):
-   - `startTracking(phone, url)`, `stopTracking()`
-   - `status()` → JSON `{tracking, lastSentAt, permission:"always|whileInUse|denied", battery:"unrestricted|restricted"}`
+   - `startTracking(phone, url)` → `true`/`false` (false: page not allowed, phone not 10 digits, or url not https on withktx.com). Without location permission it saves tracking-on, runs the permission flow, and starts once granted.
+   - `stopTracking()`
+   - `status()` → JSON string `{tracking, lastSentAt, permission:"always|whileInUse|denied", battery:"unrestricted|restricted"}`; `tracking` = service actually running, `lastSentAt` = epoch ms of the last position the server accepted or `null`; `"{}"` on a page that is not allowed
+   - window event `ktxappstatus` (detail = the status object) after the permission flow and whenever the app returns to the foreground
    - `requestPermissions()` — location "always", then battery-optimization exemption
    - `version()`
    - Bridge names are shared with the TMS server; change both sides together.
