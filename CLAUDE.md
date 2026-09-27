@@ -51,6 +51,6 @@ Built with command-line tools only (JDK 17, Android SDK cmdline-tools, Gradle wr
 9. Device test checklist docs/TEST.md
 
 ## References
-- TMS repo: WSL `/home/tms_user/ktx/tms` (`\\wsl$\Ubuntu\home\tms_user\ktx\tms`): `app/gps/service.py`, `app/gps/ingest.py`, `app/routers/driver_pages.py`, `app/templates/driver/`, `docs/TRACKING_PLAN.md`, `docs/manual/`.
+- TMS repo: WSL `/home/tms_user/ktx/tms` (`\\wsl.localhost\Ubuntu-24.04\home\tms_user\ktx\tms`): `app/gps/service.py`, `app/gps/ingest.py`, `app/routers/driver_pages.py`, `app/templates/driver/`, `docs/TRACKING_PLAN.md`, `docs/manual/`.
 - Identifier = driver phone, 10 digits (leading 1 removed).
 - Test server: test.ktxtransport.com; production: tms.ktxtransport.com. POD upload: https://pod.withktx.com.

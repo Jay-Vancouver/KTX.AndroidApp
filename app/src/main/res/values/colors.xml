@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ktx_blue">#1B2F9E</color>
+    <color name="ktx_red">#D7182A</color>
+    <color name="ic_launcher_background">#FFFFFF</color>
+</resources>
