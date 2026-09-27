@@ -20,4 +20,9 @@
     <string name="setup_allow">허용하기</string>
     <string name="setup_start">시작</string>
     <string name="setup_later">나중에</string>
+
+    <string name="update_title">새 버전 %1$s</string>
+    <string name="update_message">KTX Driver의 새 버전이 나왔습니다.</string>
+    <string name="update_now">업데이트</string>
+    <string name="update_later">나중에</string>
 </resources>

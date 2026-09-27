@@ -21,4 +21,9 @@
     <string name="setup_allow">Allow</string>
     <string name="setup_start">Start</string>
     <string name="setup_later">Later</string>
+
+    <string name="update_title">New version %1$s</string>
+    <string name="update_message">A new version of KTX Driver is available.</string>
+    <string name="update_now">Update</string>
+    <string name="update_later">Later</string>
 </resources>

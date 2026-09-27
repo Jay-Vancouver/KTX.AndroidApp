@@ -15,6 +15,7 @@ android {
         versionName = "1.0.0"
 
         buildConfigField("String", "START_URL", "\"https://driver.withktx.com/\"")
+        buildConfigField("String", "VERSION_URL", "\"https://driver.withktx.com/app/version.json\"")
     }
 
     buildTypes {

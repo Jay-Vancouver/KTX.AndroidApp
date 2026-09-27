@@ -27,6 +27,7 @@ import android.widget.Button
 import android.widget.ProgressBar
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
@@ -112,7 +113,7 @@ class MainActivity : AppCompatActivity() {
         }
         webView.webViewClient = AppWebViewClient()
         webView.webChromeClient = AppWebChromeClient()
-        webView.setDownloadListener { url, _, _, _, _ -> openExternal(Uri.parse(url)) }
+        webView.setDownloadListener { url, _, _, _, _ -> Browser.open(this, Uri.parse(url)) }
         webView.addJavascriptInterface(KtxBridge(this), KtxBridge.NAME)
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
@@ -129,26 +130,29 @@ class MainActivity : AppCompatActivity() {
         if (savedInstanceState == null && !SetupState(this).completed) {
             startActivity(Intent(this, SetupActivity::class.java))
         }
-        handleDebugTracking(intent)
+        handleDebugIntent(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         appLinkUrl(intent)?.let { webView.loadUrl(it) }
-        handleDebugTracking(intent)
+        handleDebugIntent(intent)
     }
 
     /**
-     * Debug builds only, until the web bridge exists:
+     * Debug builds only, for testing without the server:
      * adb shell am start -n com.ktxtransport.driver/.MainActivity --es debug_tracking start
      *     --es phone 6045551234 --es url http://127.0.0.1:8099/gps
+     * adb shell am start -n com.ktxtransport.driver/.MainActivity
+     *     --es debug_version_url http://127.0.0.1:8099/app/version.json
      */
-    private fun handleDebugTracking(intent: Intent?) {
-        if (!BuildConfig.DEBUG) return
-        when (intent?.getStringExtra("debug_tracking")) {
+    private fun handleDebugIntent(intent: Intent?) {
+        if (!BuildConfig.DEBUG || intent == null) return
+        when (intent.getStringExtra("debug_tracking")) {
             "start" -> LocationService.start(this, intent.getStringExtra("phone"), intent.getStringExtra("url"))
             "stop" -> LocationService.stop(this)
         }
+        intent.getStringExtra("debug_version_url")?.let { UpdateChecker.urlOverride = it }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -162,6 +166,21 @@ class MainActivity : AppCompatActivity() {
         FixUploader.flush(this) // positions left over from a stopped or killed service
         if (!LocationService.isRunning) LocationService.resumeIfTracking(this)
         dispatchStatus() // the driver may be back from a settings screen
+        UpdateChecker.checkIfDue(::showUpdate)
+    }
+
+    private var updateDialog: AlertDialog? = null
+
+    /** Not forced: "Later" closes it until the next check. */
+    private fun showUpdate(update: UpdateChecker.Update) {
+        if (isFinishing || isDestroyed || updateDialog?.isShowing == true) return
+        val message = update.notes.ifEmpty { getString(R.string.update_message) }
+        updateDialog = AlertDialog.Builder(this)
+            .setTitle(getString(R.string.update_title, update.version))
+            .setMessage(message)
+            .setPositiveButton(R.string.update_now) { _, _ -> Browser.open(this, Uri.parse(update.apkUrl)) }
+            .setNegativeButton(R.string.update_later, null)
+            .show()
     }
 
     override fun onPause() {

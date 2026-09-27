@@ -57,6 +57,8 @@ Built with command-line tools only (JDK 17, Android SDK cmdline-tools, Gradle wr
 - `tools/gps_receiver.ps1` logs OsmAnd POSTs on `http://127.0.0.1:8099/` to `tools/gps_received.log`; `adb reverse tcp:8099 tcp:8099` lets the phone reach it (debug builds allow cleartext to localhost only).
 - Debug builds accept `adb shell am start -n com.ktxtransport.driver/.MainActivity --es debug_tracking start --es phone 6045550100 --es url http://127.0.0.1:8099/gps` (and `debug_tracking stop`) in place of the web bridge.
 - Offline queue: `adb reverse --remove tcp:8099`, wait, re-add; queued fixes arrive in order.
+- Update check: `tools/version_server.ps1 -Version 9.9.9` serves `/app/version.json` and a dummy APK on the same port; debug builds take `--es debug_version_url http://127.0.0.1:8099/app/version.json`. The check runs on foreground at most every 12 h per process.
+- Update APKs and page downloads open in the browser by package name (`Browser.open`), never plain ACTION_VIEW: a driver.withktx.com URL would otherwise loop back into this app via App Links. Chrome always shows "file might be harmful" for APKs; the driver guide must say to tap "Download anyway".
 
 ## References
 - TMS repo: WSL `/home/tms_user/ktx/tms` (`\\wsl.localhost\Ubuntu-24.04\home\tms_user\ktx\tms`): `app/gps/service.py`, `app/gps/ingest.py`, `app/routers/driver_pages.py`, `app/templates/driver/`, `docs/TRACKING_PLAN.md`, `docs/manual/`.

@@ -3,7 +3,6 @@ package com.ktxtransport.driver
 import android.Manifest
 import android.content.ActivityNotFoundException
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -53,7 +52,7 @@ class SetupActivity : AppCompatActivity() {
         state = SetupState(this)
 
         val list = findViewById<ViewGroup>(R.id.items)
-        val browser = browserLabel()
+        val browser = Browser.label(this) ?: getString(R.string.setup_browser_fallback)
         items = listOf(
             Item(
                 addRow(list, R.string.setup_location_title, getString(R.string.setup_location_desc)),
@@ -164,7 +163,7 @@ class SetupActivity : AppCompatActivity() {
     /** The browser downloads the update APK, so it is the one that needs "install unknown apps". */
     private fun openUpdateSettings() {
         state.updateSettingsOpened = true
-        val pkg = browserPackage()
+        val pkg = Browser.packageName(this)
         val intent = if (pkg != null) {
             Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$pkg"))
         } else {
@@ -179,35 +178,5 @@ class SetupActivity : AppCompatActivity() {
         } catch (_: ActivityNotFoundException) {
             refresh()
         }
-    }
-
-    /** Default browser package; Chrome when there is no default (chooser) or none resolves. */
-    private fun browserPackage(): String? {
-        // A neutral address: driver.withktx.com links resolve to this app itself.
-        val probe = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.example.com/"))
-        val pkg = packageManager.resolveActivity(probe, PackageManager.MATCH_DEFAULT_ONLY)?.activityInfo?.packageName
-        if (pkg != null && pkg != "android" && isInstalled(pkg)) return pkg
-        return CHROME.takeIf { isInstalled(it) }
-    }
-
-    private fun browserLabel(): String {
-        val pkg = browserPackage() ?: return getString(R.string.setup_browser_fallback)
-        return try {
-            packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, 0)).toString()
-        } catch (_: PackageManager.NameNotFoundException) {
-            getString(R.string.setup_browser_fallback)
-        }
-    }
-
-    private fun isInstalled(pkg: String): Boolean =
-        try {
-            packageManager.getApplicationInfo(pkg, 0)
-            true
-        } catch (_: PackageManager.NameNotFoundException) {
-            false
-        }
-
-    private companion object {
-        const val CHROME = "com.android.chrome"
     }
 }
