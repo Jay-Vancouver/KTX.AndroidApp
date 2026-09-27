@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">KTX Driver</string>
+    <string name="app_name" translatable="false">KTX Driver</string>
+    <string name="error_title">Can\'t connect</string>
+    <string name="error_message">Check your internet connection and try again.</string>
+    <string name="retry">Try again</string>
 </resources>
