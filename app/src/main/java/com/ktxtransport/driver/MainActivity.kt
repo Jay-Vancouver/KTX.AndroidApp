@@ -125,6 +125,10 @@ class MainActivity : AppCompatActivity() {
         if (savedInstanceState == null || webView.restoreState(savedInstanceState) == null) {
             webView.loadUrl(appLinkUrl(intent) ?: WebHosts.startUrl)
         }
+        // First-run guide on top of the page (which keeps loading behind it) until it is completed.
+        if (savedInstanceState == null && !SetupState(this).completed) {
+            startActivity(Intent(this, SetupActivity::class.java))
+        }
         handleDebugTracking(intent)
     }
 

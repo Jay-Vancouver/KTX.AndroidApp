@@ -5,4 +5,19 @@
     <string name="retry">다시 시도</string>
     <string name="tracking_channel">위치 공유</string>
     <string name="tracking_notification">KTX: 위치 전송 중</string>
+
+    <string name="setup_title">KTX Driver 설정</string>
+    <string name="setup_intro">한 번만 허용하면 화면이 꺼져 있어도 운행 중 트럭 위치가 전송됩니다.</string>
+    <string name="setup_location_title">위치: 항상 허용</string>
+    <string name="setup_location_desc">다음 화면에서 \"항상 허용\"을 선택하세요. 화면이 꺼져도 위치를 보내려면 필요합니다.</string>
+    <string name="setup_notifications_title">알림</string>
+    <string name="setup_notifications_desc">위치를 보내는 동안 \"KTX: 위치 전송 중\" 알림을 표시합니다.</string>
+    <string name="setup_battery_title">배터리 제한 없음</string>
+    <string name="setup_battery_desc">장거리 운행 중 Android가 앱을 멈추지 않게 합니다.</string>
+    <string name="setup_updates_title">앱 업데이트 설치 허용</string>
+    <string name="setup_updates_desc">다음 화면에서 %1$s의 허용 스위치를 켜 주세요. 이 앱의 새 버전을 설치할 수 있습니다.</string>
+    <string name="setup_browser_fallback">브라우저</string>
+    <string name="setup_allow">허용하기</string>
+    <string name="setup_start">시작</string>
+    <string name="setup_later">나중에</string>
 </resources>

@@ -21,6 +21,13 @@
         <intent>
             <action android:name="android.media.action.IMAGE_CAPTURE" />
         </intent>
+        <!-- The first-run guide finds the browser that will download app updates. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" />
+        </intent>
+        <package android:name="com.android.chrome" />
     </queries>
 
     <application
@@ -59,6 +66,10 @@
                 <data android:scheme="https" android:host="www.withktx.com" android:pathPrefix="/driver/" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".SetupActivity"
+            android:exported="false" />
 
         <service
             android:name=".LocationService"

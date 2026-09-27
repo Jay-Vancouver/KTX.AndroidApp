@@ -3,4 +3,5 @@
     <color name="ktx_blue">#1B2F9E</color>
     <color name="ktx_red">#D7182A</color>
     <color name="ic_launcher_background">#FFFFFF</color>
+    <color name="setup_done">#1E8E3E</color>
 </resources>

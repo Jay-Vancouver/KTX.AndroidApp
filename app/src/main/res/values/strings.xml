@@ -6,4 +6,19 @@
     <string name="retry">Try again</string>
     <string name="tracking_channel">Location sharing</string>
     <string name="tracking_notification">KTX: Sending location</string>
+
+    <string name="setup_title">Set up KTX Driver</string>
+    <string name="setup_intro">Allow these once so your truck\'s location is sent while you drive, even with the screen off.</string>
+    <string name="setup_location_title">Location: Allow all the time</string>
+    <string name="setup_location_desc">On the next screen choose \"Allow all the time\". Needed to send your location with the screen off.</string>
+    <string name="setup_notifications_title">Notifications</string>
+    <string name="setup_notifications_desc">Shows \"KTX: Sending location\" while your location is being sent.</string>
+    <string name="setup_battery_title">No battery restriction</string>
+    <string name="setup_battery_desc">Stops Android from pausing the app on long drives.</string>
+    <string name="setup_updates_title">Allow app updates</string>
+    <string name="setup_updates_desc">On the next screen turn on the switch for %1$s so it can install new versions of this app.</string>
+    <string name="setup_browser_fallback">your browser</string>
+    <string name="setup_allow">Allow</string>
+    <string name="setup_start">Start</string>
+    <string name="setup_later">Later</string>
 </resources>
