@@ -1,0 +1,134 @@
+KTX 드라이버 하이브리드 앱 (Android) — 새 세션용 작업 지시서
+================================================================
+
+이 파일은 새 폴더(C:\ktx-apk)에서 여는 새 Claude Code 세션의 첫 지시입니다.
+아래 내용을 그대로 붙여 넣거나, "ktxhybridapp.txt를 읽고 시작해 줘"라고 하십시오.
+
+--------------------------------------------------------------------
+0. 세션 규칙 (매 세션 적용)
+--------------------------------------------------------------------
+- 답변, 질문, 설명은 모두 한글로. 코드·식별자·커밋 메시지는 영문.
+- 커밋은 내가 "커밋해줘"라고 할 때만. 커밋하면 항상 origin에 push까지.
+- 이 폴더는 TMS와 별개의 git 저장소. 첫 작업으로 git init, .gitignore(Android),
+  CLAUDE.md(이 파일의 1~5절 요약)를 만들 것.
+- 작업 완료 보고 전에 빌드(./gradlew assembleDebug)가 통과했는지 확인하고 결과를 말할 것.
+
+--------------------------------------------------------------------
+1. 왜 만드는가 (배경)
+--------------------------------------------------------------------
+KTX Transport는 운송 관리 시스템(TMS)을 FastAPI + HTMX로 새로 만들었고, 드라이버는
+폰 브라우저로 https://driver.withktx.com 을 열어 픽업 스캔·배송 서명·운행 일지·
+차량 점검을 한다. 트럭 위치는 지금 별도 앱(Traccar Client)이 서버로 보낸다.
+
+문제:
+- 드라이버가 앱을 하나 더 설치하고 서버 주소·식별자를 넣고 "Continuous tracking"
+  스위치를 켜야 한다. 이 설정 단계에서 실수와 문의가 많다.
+- 웹 페이지는 다른 앱을 켜거나 끌 수 없어서 "픽업하면 추적 시작, 배송하면 중지"가
+  안 된다. (OwnTracks도 시험했으나 Android에서 웹이 앱을 열 수 없어 포기.)
+- 브라우저는 화면이 꺼지면 위치를 받을 수 없다.
+
+해결: 드라이버 웹 페이지를 WebView로 감싼 하이브리드 앱을 만들고, 그 안에 위치를
+보내는 네이티브 서비스를 넣는다. 웹 페이지가 앱에 "추적 시작/중지"를 지시하므로
+드라이버는 앱 아이콘 하나만 누르면 되고, 설정할 것이 없다. Traccar Client 소스는
+포함하지 않는다(필요한 것은 위치 전송뿐이며 안드로이드 기본 API로 충분).
+
+배포: Google Play가 아니라 사내 홈페이지에 APK를 올려 드라이버가 내려받아 설치한다.
+iPhone 드라이버는 계속 웹 + Traccar Client를 쓰므로 서버는 두 경로를 모두 유지한다.
+
+--------------------------------------------------------------------
+2. 앱 구조 (만들 것)
+--------------------------------------------------------------------
+Android, Kotlin, minSdk 26(Android 8), targetSdk 34. Android Studio 없이 VS Code +
+명령줄(JDK 17, Android SDK cmdline-tools, Gradle wrapper, adb)로 빌드한다.
+
+(1) WebView 화면 하나
+    - https://driver.withktx.com 을 연다. 로그인(SMS 링크), 픽업, 배송, 운행 일지,
+      점검은 전부 그 페이지가 처리한다. 앱은 화면을 새로 만들지 않는다.
+    - 쿠키 유지(로그인 6개월), 카메라 권한 위임(픽업 스캔·점검 사진·서명 캔버스),
+      파일 선택(사진 업로드), 뒤로 가기는 WebView 히스토리, 외부 링크는 브라우저로.
+    - User-Agent에 "KTXDriverApp/<버전>"을 덧붙인다. 서버가 앱 안에서 열렸는지
+      이 문자열로 판별한다.
+    - SMS 로그인 링크(https://driver.withktx.com/...)를 탭했을 때 앱이 열리도록
+      App Links(intent-filter, autoVerify)를 건다. 안 되면 브라우저에서 열려도 무방.
+
+(2) 위치 서비스 (Foreground Service, foregroundServiceType="location")
+    - FusedLocationProviderClient(Google Play 서비스). 없는 폰은 LocationManager로 폴백.
+    - 주기: 추적 중 60초·고정밀(bearing 계산에 GPS 필요), 정차 시에도 5분마다 한 번
+      보낸다(하트비트: 서버가 "주차"와 "꺼짐"을 구분한다).
+    - 전송 형식은 서버가 이미 받는 OsmAnd 형식 그대로 (서버 변경 없음):
+        POST https://www.withktx.com/gps
+        form 필드: id=<전화번호 10자리 숫자만>, lat, lon, timestamp(UTC epoch 초),
+                   speed(knots), bearing, altitude, accuracy, batt(%)
+        응답은 빈 200. 실패하면 로컬 큐에 쌓았다가 순서대로 재전송(같은 (id,timestamp)를
+        두 번 보내도 서버는 한 행만 저장하므로 중복 전송은 무해).
+    - 상시 알림("KTX: 위치 전송 중")은 Android 규칙상 필수. 알림을 눌러도 앱이 열리게.
+    - 재부팅(BOOT_COMPLETED) 시 "추적 중" 상태였으면 서비스를 다시 켠다.
+    - 추적 상태(on/off, 전화번호, 서버 URL, 마지막 전송 시각)는 SharedPreferences에 보관.
+
+(3) 웹 ↔ 네이티브 다리 (addJavascriptInterface, 객체 이름 "KtxAndroidApp")
+    - KtxAndroidApp.startTracking(phone, url): 서비스 시작. phone은 서버가 준 숫자 10자리.
+    - KtxAndroidApp.stopTracking()
+    - KtxAndroidApp.status(): JSON 문자열 {tracking, lastSentAt, permission:"always|whileInUse|denied", battery:"unrestricted|restricted"}
+    - KtxAndroidApp.requestPermissions(): 위치 "항상"과 배터리 최적화 예외를 순서대로 요청하는 안내 흐름
+    - KtxAndroidApp.version(): 앱 버전 문자열
+    - 보안: driver.withktx.com 도메인의 페이지에서만 인터페이스를 노출한다.
+
+(4) 자체 업데이트 확인
+    - 앱 시작 시 https://driver.withktx.com/app/version.json (서버에 추가 예정;
+      {"version":"1.0.3","apk":"https://.../ktx-driver-1.0.3.apk","notes":"..."}) 을 읽어
+      새 버전이면 안내 후 다운로드 링크를 연다. 강제는 아님.
+
+(5) 첫 실행 안내 화면 (네이티브 또는 WebView 위 오버레이)
+    - "위치 항상 허용", "배터리 최적화 예외", "출처를 알 수 없는 앱 설치 허용"을 한 번에
+      안내. 허용이 끝나면 다시 묻지 않음.
+
+--------------------------------------------------------------------
+3. 동작 시나리오
+--------------------------------------------------------------------
+- 픽업 완료 화면(웹)이 KtxAndroidApp.startTracking(전화번호, https://www.withktx.com/gps)을
+  부른다 → 즉시 첫 위치 전송 → 60초 주기.
+- 배송 완료 화면(웹)이 실린 로드가 더 없으면 KtxAndroidApp.stopTracking()을 부른다.
+- 웹 페이지의 "Location: sending" 카드는 서버에 도착한 위치로 판단하므로 그대로 동작.
+- 앱이 강제 종료되면 서버에 위치가 끊기고 카드가 빨간색이 된다(지금과 같음).
+  앱 안에서는 status()로 서비스가 살아 있는지 카드에 표시할 수 있다(서버 쪽 작업).
+
+--------------------------------------------------------------------
+4. 서버(TMS) 쪽에서 나중에 할 일 — 이 세션이 아니라 TMS 세션에서
+--------------------------------------------------------------------
+- User-Agent "KTXDriverApp/"이면 Traccar 안내 카드 대신 앱용 문구, 픽업·배송 결과
+  화면에서 KtxAndroidApp.startTracking/stopTracking 호출, status()로 카드 보강.
+- /app/version.json 과 APK 파일 호스팅(사내 홈페이지 또는 driver.withktx.com/app/).
+- 드라이버 가이드 Android 판: 3.1·3.3(설치·연결) 대신 "APK 설치 + 권한 허용" 한 절.
+다리의 함수 이름은 위 (3)절을 기준으로 하고, 바뀌면 양쪽을 같이 고친다.
+
+--------------------------------------------------------------------
+5. 작업 순서 (새 세션에 지시할 순서)
+--------------------------------------------------------------------
+1) 도구 확인·설치: JDK 17, Android cmdline-tools(sdkmanager로 platform-tools,
+   platforms;android-34, build-tools;34.0.0), Gradle wrapper. Android Studio 없이.
+   설치 절차를 docs/SETUP.md에 남길 것.
+2) 프로젝트 골격: 패키지 com.ktxtransport.driver, 앱 이름 "KTX Driver", 아이콘은
+   TMS 저장소의 app/static/img/PartnerLogo.png 기반(파일 복사해 사용).
+3) WebView 화면 + 카메라/파일 권한 + User-Agent + App Links.
+4) 위치 Foreground Service + OsmAnd 전송 + 오프라인 큐 + 하트비트 + 부팅 재시작.
+5) KtxAndroidApp 다리 + 도메인 제한.
+6) 첫 실행 권한 안내 화면.
+7) 업데이트 확인.
+8) 서명 keystore 생성 절차와 assembleRelease 설정(keystore는 저장소에 넣지 말고
+   경로·비밀번호는 로컬 gradle.properties 또는 환경변수). 백업 안내를 문서에.
+9) 실기기 시험 체크리스트(docs/TEST.md): 설치 → 로그인 → 픽업 → 알림 확인 →
+   화면 끄고 5분 → 서버 Tracking 지도에 점 찍힘 → 배송 → 서비스 중지 → 재부팅.
+
+각 단계마다 빌드가 통과하는지 확인하고, 단계별로 커밋할지 물어볼 것.
+
+--------------------------------------------------------------------
+6. 참고 정보
+--------------------------------------------------------------------
+- TMS 저장소: WSL의 /home/tms_user/ktx/tms (Windows에서는 \\wsl$\Ubuntu\home\tms_user\ktx\tms).
+  위치 수신 코드 app/gps/service.py, app/gps/ingest.py; 드라이버 페이지 app/routers/driver_pages.py,
+  app/templates/driver/; 추적 설계 docs/TRACKING_PLAN.md; 드라이버 가이드 docs/manual/.
+- 위치 수신 주소: https://www.withktx.com/gps (전용 호스트 gps.withktx.com으로 옮길 수 있음 — 앱은
+  startTracking()이 받은 url을 쓰므로 하드코딩하지 말 것).
+- 식별자 = 드라이버 전화번호 숫자 10자리(앞의 1 제거). 서버가 이 번호로 픽업한 로드와 연결한다.
+- 드라이버 페이지 주소: https://driver.withktx.com  (POD 업로드: https://pod.withktx.com)
+- 현재 테스트 서버: test.ktxtransport.com, 운영 예정: tms.ktxtransport.com.
