@@ -54,8 +54,9 @@ $env:ANDROID_HOME = [Environment]::GetEnvironmentVariable('ANDROID_HOME','User')
 | 7) 업데이트 확인 | `acb78c6` | 새 버전 안내, Chrome 다운로드, 같은 버전이면 무표시, 12시간 제한 |
 | 8) release 서명, SIGNING.md, assetlinks.json | `e26b25b` | release 빌드·서명 검증(폰 설치는 안 함) |
 | 9) TEST.md | `c9adeb7` | — |
+| 추가) 업데이트를 앱 안에서 설치 | (이 커밋) | **실기기 미확인** — 폰 연결이 끊겨 시험 전에 커밋함 |
 
-**아직 한 번도 확인하지 못한 것** (TEST.md에 항목 있음): 5분 하트비트(4.3), 실제 재부팅(6.1), 점검 사진 업로드(3.5),
+**아직 한 번도 확인하지 못한 것** (TEST.md에 항목 있음): **앱 내 업데이트 설치 전체(7절)**, 5분 하트비트(4.3), 실제 재부팅(6.1), 점검 사진 업로드(3.5),
 release APK 설치·업데이트(1절, 7절), App Links 도메인 인증(2.2), 서버 지도에 점 찍힘(3.4 — 시험은 PC 수신기로만 함).
 
 ## 5. 코드 지도 (`app/src/main/java/com/ktxtransport/driver/`)
@@ -74,6 +75,7 @@ release APK 설치·업데이트(1절, 7절), App Links 도메인 인증(2.2), �
 | `PermissionFlow.kt` | 위치 → 항상 → 알림 → 배터리 예외 순서 요청(단계 부분 선택 가능) |
 | `SetupActivity.kt`, `SetupState.kt` | 첫 실행 안내 화면, 완료 기록(SharedPreferences `setup`) |
 | `UpdateChecker.kt` | `version.json` 확인, 버전 비교 |
+| `UpdateInstaller.kt`, `InstallResultReceiver.kt` | 앱 내 업데이트: 다운로드, APK 검증(패키지·서명·versionCode), PackageInstaller 설치, 확인 화면/결과 |
 | `Browser.kt` | 기본 브라우저(없으면 Chrome)를 **패키지로 지정**해 열기 |
 
 설정: `app/build.gradle.kts`의 `START_URL`, `VERSION_URL`(buildConfigField), release 서명(`KTX_*`), release APK 이름.
@@ -104,14 +106,18 @@ debug 전용: `app/src/debug/res/xml/network_security_config.xml`(localhost http
 - **하트비트**: Traccar 설정(`interval=60, heartbeat=300`)과 같게 — 60초마다 보내고, 5분간 새 보고가 없으면 마지막 위치를
   현재 시각으로 보낸다. 서버 stale 기준은 10분(`TMS_TRACKING_STALE_MINUTES`).
 - **WakeLock**: 추적 중에만 PARTIAL_WAKE_LOCK — 화면이 꺼져도 60초 주기 유지(Traccar Client 기본값과 같음).
-- **업데이트는 브라우저로**(사용자 선택, 지시서 그대로). 그래서 첫 실행의 "앱 업데이트 설치 허용"은 **브라우저**의
-  알 수 없는 앱 설치 화면을 연다. 다른 앱 권한은 읽을 수 없어 "한 번 열었으면 완료"로 기록.
+- **업데이트는 앱 안에서 설치**(2026-09-28 사용자 요청으로 브라우저 방식에서 변경). `UpdateInstaller`가 내려받고,
+  같은 패키지·같은 서명 키·더 높은 versionCode인지 확인한 뒤 PackageInstaller 세션으로 설치한다. Android 설치 확인 화면은
+  `InstallResultReceiver`가 띄운다. Play 밖 앱이라 첫 업데이트는 드라이버가 한 번 눌러야 한다(Android 12+에서는 그 뒤
+  이 앱이 설치 주체가 되어 확인이 생략될 수 있음 — `USER_ACTION_NOT_REQUIRED`). 첫 실행 안내 4번 항목은 **KTX Driver 자신의**
+  "알 수 없는 앱 설치" 허용이며 실제 허용 여부(`canRequestPackageInstalls`)로 ✓ 표시.
 - **Browser.open은 패키지를 지정**: 삼성 폰에서 selector(CATEGORY_APP_BROWSER) 방식은 관계없는 앱까지 나오는 선택 창을
   띄웠다. 그리고 plain ACTION_VIEW는 driver.withktx.com URL이면 App Links로 우리 앱에 돌아온다.
 - **화면 문구**: 기본 영어, 폰 언어가 한국어면 `values-ko`.
 - **라이브러리 버전 고정**: core-ktx 1.13.1, appcompat 1.7.0 — 최신은 compileSdk 35 이상 필요(지시서는 SDK 34).
 - **release minify 끔**: 켜면 `@JavascriptInterface` keep 규칙 필요(`proguard-rules.pro`에 주석으로 준비).
-- **Chrome은 모든 APK 다운로드에 "유해한 파일일 수도 있음" 경고**를 띄운다 → 드라이버 가이드에 "무시하고 다운로드".
+- **Chrome은 모든 APK 다운로드에 "유해한 파일일 수도 있음" 경고**를 띄운다 → 첫 설치(브라우저 다운로드) 안내에 "무시하고 다운로드".
+  업데이트는 앱 안에서 하므로 이 경고가 없다.
 - **재부팅 후에는 잠금을 한 번 풀어야** 추적 재시작(앱이 directBootAware가 아님).
 
 ## 8. 서명 (자세히: [SIGNING.md](SIGNING.md))
@@ -174,7 +180,14 @@ debug 전용: `app/src/debug/res/xml/network_security_config.xml`(localhost http
 5. (S4) `/app/version.json`과 APK 호스팅. 아직 없음(`www.withktx.com/driver/app/version.json`은 404).
    driver.withktx.com 리다이렉트를 거쳐도 앱은 https 리다이렉트를 따라가지만, `/app/`도 예외로 직접 응답하는 편이 확실.
    다른 주소로 정하면 앱의 `VERSION_URL`만 바꾼다.
-6. 드라이버 가이드 Android 판: 3.1·3.3 대신 "APK 설치 + 권한 허용", Chrome 경고 "무시하고 다운로드".
+6. 드라이버 가이드 Android 판: 3.1·3.3 대신 "APK 설치 + 권한 허용", 첫 설치의 Chrome 경고 "무시하고 다운로드",
+   업데이트는 앱의 "업데이트" → Android 확인 화면 "업데이트".
+
+**서버 작업 전에도 할 수 있는 것 (이 저장소)**
+1. 앱 내 업데이트 실기기 시험: versionCode 2 / versionName 9.9.9로 잠깐 바꿔 debug APK를 빌드해 복사하고 되돌린 뒤,
+   1.0.0 debug 설치 → `tools/version_server.ps1 -Version 9.9.9 -ApkPath <9.9.9 apk>` + `adb reverse tcp:8099 tcp:8099`
+   → `--es debug_version_url http://127.0.0.1:8099/app/version.json`로 실행 → 업데이트 → 권한 화면 → 다운로드 → 설치 확인
+   → `dumpsys package com.ktxtransport.driver | grep versionName`이 9.9.9, 로그인 유지 확인 → `adb install -r -d`로 1.0.0 복구.
 
 **서버 작업 후 (이 저장소)**
 1. 사용자 동의 후 debug 앱 삭제 → release APK 설치 → [TEST.md](TEST.md) 전 항목 시험.

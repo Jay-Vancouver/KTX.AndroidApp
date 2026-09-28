@@ -11,11 +11,6 @@ class SetupState(context: Context) {
         get() = prefs.getBoolean("completed", false)
         set(value) = prefs.edit().putBoolean("completed", value).apply()
 
-    /** The browser's "install unknown apps" page was opened (its state cannot be read back). */
-    var updateSettingsOpened: Boolean
-        get() = prefs.getBoolean("update_settings_opened", false)
-        set(value) = prefs.edit().putBoolean("update_settings_opened", value).apply()
-
     /** The system dialog was shown once; after that a refusal may be permanent (settings only). */
     var locationAsked: Boolean
         get() = prefs.getBoolean("location_asked", false)

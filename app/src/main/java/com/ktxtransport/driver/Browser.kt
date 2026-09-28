@@ -7,7 +7,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 
-/** The phone's web browser: downloads and app updates must go there, not back into this app. */
+/** The phone's web browser: page downloads must go there, not back into this app. */
 object Browser {
 
     private const val CHROME = "com.android.chrome"
@@ -47,17 +47,6 @@ object Browser {
         val pkg = pm.resolveActivity(probe, PackageManager.MATCH_DEFAULT_ONLY)?.activityInfo?.packageName
         if (pkg != null && pkg != "android" && isInstalled(pm, pkg)) return pkg
         return CHROME.takeIf { isInstalled(pm, it) }
-    }
-
-    /** "Chrome", "Samsung Internet", ...; null when no browser is found. */
-    fun label(context: Context): String? {
-        val pm = context.packageManager
-        val pkg = packageName(context) ?: return null
-        return try {
-            pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
-        } catch (_: PackageManager.NameNotFoundException) {
-            null
-        }
     }
 
     private fun isInstalled(pm: PackageManager, pkg: String): Boolean =

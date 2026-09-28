@@ -35,8 +35,8 @@ Built with command-line tools only (JDK 17, Android SDK cmdline-tools, Gradle wr
    - `requestPermissions()` — location "always", then battery-optimization exemption
    - `version()`
    - Bridge names are shared with the TMS server; change both sides together.
-4. **Update check** — on start read https://driver.withktx.com/app/version.json (`{"version","apk","notes"}`); if newer, prompt and open the download link (not forced).
-5. **First-run guide** — location "always", battery-optimization exemption, "install unknown apps"; do not ask again once granted.
+4. **Update check** — on start read https://driver.withktx.com/app/version.json (`{"version","apk","notes"}`); if newer, prompt; "Update" downloads and installs it inside the app (not forced; changed from "open the download link" at the user's request 2026-09-28).
+5. **First-run guide** — location "always", notifications, battery-optimization exemption, "install unknown apps" for KTX Driver itself; do not ask again once granted.
 
 ## Scenario
 - Pickup-complete page calls `startTracking(phone, "https://www.withktx.com/gps")` → immediate first fix → every 60 s.
@@ -63,7 +63,8 @@ Built with command-line tools only (JDK 17, Android SDK cmdline-tools, Gradle wr
 - Debug builds accept `adb shell am start -n com.ktxtransport.driver/.MainActivity --es debug_tracking start --es phone 6045550100 --es url http://127.0.0.1:8099/gps` (and `debug_tracking stop`) in place of the web bridge.
 - Offline queue: `adb reverse --remove tcp:8099`, wait, re-add; queued fixes arrive in order.
 - Update check: `tools/version_server.ps1 -Version 9.9.9` serves `/app/version.json` and a dummy APK on the same port; debug builds take `--es debug_version_url http://127.0.0.1:8099/app/version.json`. The check runs on foreground at most every 12 h per process.
-- Update APKs and page downloads open in the browser by package name (`Browser.open`), never plain ACTION_VIEW: a driver.withktx.com URL would otherwise loop back into this app via App Links. Chrome always shows "file might be harmful" for APKs; the driver guide must say to tap "Download anyway".
+- Updates install in the app (`UpdateInstaller`): download with progress, check same package + same signing key + higher versionCode, then PackageInstaller (Android shows its confirmation; `InstallResultReceiver` opens it). Needs "Install unknown apps" for KTX Driver itself (first-run guide item 4). Test with a debug APK built at a higher versionCode: `tools/version_server.ps1 -Version 9.9.9 -ApkPath <apk>`.
+- Page downloads open in the browser by package name (`Browser.open`), never plain ACTION_VIEW: a driver.withktx.com URL would otherwise loop back into this app via App Links. The first install is still a browser download, and Chrome always shows "file might be harmful" for APKs; the driver guide must say to tap "Download anyway".
 
 ## References
 - TMS repo: WSL `/home/tms_user/ktx/tms` (`\\wsl.localhost\Ubuntu-24.04\home\tms_user\ktx\tms`): `app/gps/service.py`, `app/gps/ingest.py`, `app/routers/driver_pages.py`, `app/templates/driver/`, `docs/TRACKING_PLAN.md`, `docs/manual/`.

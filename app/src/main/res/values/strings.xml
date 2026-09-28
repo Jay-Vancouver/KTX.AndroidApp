@@ -16,8 +16,7 @@
     <string name="setup_battery_title">No battery restriction</string>
     <string name="setup_battery_desc">Stops Android from pausing the app on long drives.</string>
     <string name="setup_updates_title">Allow app updates</string>
-    <string name="setup_updates_desc">On the next screen turn on the switch for %1$s so it can install new versions of this app.</string>
-    <string name="setup_browser_fallback">your browser</string>
+    <string name="setup_updates_desc">On the next screen turn on the switch for KTX Driver so new versions install right in the app.</string>
     <string name="setup_allow">Allow</string>
     <string name="setup_start">Start</string>
     <string name="setup_later">Later</string>
@@ -26,4 +25,9 @@
     <string name="update_message">A new version of KTX Driver is available.</string>
     <string name="update_now">Update</string>
     <string name="update_later">Later</string>
+    <string name="update_downloading">Downloading version %1$s…</string>
+    <string name="update_need_permission">To install updates, allow KTX Driver to install apps (\"Install unknown apps\").</string>
+    <string name="update_failed">The update could not be downloaded. Please try again later.</string>
+    <string name="update_invalid">The downloaded file is not a valid KTX Driver update.</string>
+    <string name="update_install_failed">The update was not installed. Please try again later.</string>
 </resources>

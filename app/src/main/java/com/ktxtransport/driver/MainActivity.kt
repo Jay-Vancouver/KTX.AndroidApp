@@ -10,6 +10,7 @@ import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
+import android.provider.Settings
 import android.view.View
 import android.webkit.CookieManager
 import android.webkit.GeolocationPermissions
@@ -24,6 +25,7 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.ProgressBar
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
@@ -169,7 +171,10 @@ class MainActivity : AppCompatActivity() {
         UpdateChecker.checkIfDue(::showUpdate)
     }
 
+    // --- Update (UpdateChecker finds it, UpdateInstaller downloads and installs it) ---
+
     private var updateDialog: AlertDialog? = null
+    private var pendingUpdate: UpdateChecker.Update? = null
 
     /** Not forced: "Later" closes it until the next check. */
     private fun showUpdate(update: UpdateChecker.Update) {
@@ -178,8 +183,86 @@ class MainActivity : AppCompatActivity() {
         updateDialog = AlertDialog.Builder(this)
             .setTitle(getString(R.string.update_title, update.version))
             .setMessage(message)
-            .setPositiveButton(R.string.update_now) { _, _ -> Browser.open(this, Uri.parse(update.apkUrl)) }
+            .setPositiveButton(R.string.update_now) { _, _ -> startUpdate(update) }
             .setNegativeButton(R.string.update_later, null)
+            .show()
+    }
+
+    /** "Install unknown apps" for this app itself, asked the first time an update is installed. */
+    private val installPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+            val update = pendingUpdate ?: return@registerForActivityResult
+            pendingUpdate = null
+            if (packageManager.canRequestPackageInstalls()) downloadUpdate(update) else showNotice(R.string.update_need_permission)
+        }
+
+    private fun startUpdate(update: UpdateChecker.Update) {
+        if (packageManager.canRequestPackageInstalls()) {
+            downloadUpdate(update)
+            return
+        }
+        pendingUpdate = update
+        try {
+            installPermissionLauncher.launch(
+                Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName"))
+            )
+        } catch (_: ActivityNotFoundException) {
+            pendingUpdate = null
+            showNotice(R.string.update_need_permission)
+        }
+    }
+
+    private fun downloadUpdate(update: UpdateChecker.Update) {
+        val bar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+            max = 100
+            isIndeterminate = true
+        }
+        val padding = (24 * resources.displayMetrics.density).toInt()
+        val content = FrameLayout(this).apply {
+            setPadding(padding, padding / 2, padding, 0)
+            addView(bar)
+        }
+        var cancelled = false
+        var cancel: (() -> Unit)? = null
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(getString(R.string.update_downloading, update.version))
+            .setView(content)
+            .setCancelable(false)
+            .setNegativeButton(android.R.string.cancel) { _, _ ->
+                cancelled = true
+                cancel?.invoke()
+            }
+            .show()
+
+        cancel = UpdateInstaller.download(this, update.apkUrl,
+            onProgress = { percent ->
+                if (percent >= 0) {
+                    bar.isIndeterminate = false
+                    bar.progress = percent
+                }
+            },
+            onDone = { file ->
+                if (isDestroyed) return@download
+                dialog.dismiss()
+                when {
+                    cancelled -> file?.delete()
+                    file == null -> showNotice(R.string.update_failed)
+                    !UpdateInstaller.isValidUpdate(this, file) -> {
+                        file.delete()
+                        showNotice(R.string.update_invalid)
+                    }
+                    !UpdateInstaller.install(this, file) -> showNotice(R.string.update_install_failed)
+                    // else: Android's install confirmation opens via InstallResultReceiver
+                }
+            },
+        )
+    }
+
+    private fun showNotice(messageRes: Int) {
+        if (isFinishing || isDestroyed) return
+        AlertDialog.Builder(this)
+            .setMessage(messageRes)
+            .setPositiveButton(android.R.string.ok, null)
             .show()
     }
 

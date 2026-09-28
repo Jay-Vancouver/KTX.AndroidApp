@@ -15,8 +15,7 @@
     <string name="setup_battery_title">배터리 제한 없음</string>
     <string name="setup_battery_desc">장거리 운행 중 Android가 앱을 멈추지 않게 합니다.</string>
     <string name="setup_updates_title">앱 업데이트 설치 허용</string>
-    <string name="setup_updates_desc">다음 화면에서 %1$s의 허용 스위치를 켜 주세요. 이 앱의 새 버전을 설치할 수 있습니다.</string>
-    <string name="setup_browser_fallback">브라우저</string>
+    <string name="setup_updates_desc">다음 화면에서 KTX Driver의 허용 스위치를 켜 주세요. 새 버전을 앱 안에서 바로 설치할 수 있습니다.</string>
     <string name="setup_allow">허용하기</string>
     <string name="setup_start">시작</string>
     <string name="setup_later">나중에</string>
@@ -25,4 +24,9 @@
     <string name="update_message">KTX Driver의 새 버전이 나왔습니다.</string>
     <string name="update_now">업데이트</string>
     <string name="update_later">나중에</string>
+    <string name="update_downloading">%1$s 버전 내려받는 중…</string>
+    <string name="update_need_permission">업데이트를 설치하려면 KTX Driver의 \"출처를 알 수 없는 앱 설치\"를 허용해 주세요.</string>
+    <string name="update_failed">업데이트를 내려받지 못했습니다. 잠시 후 다시 시도해 주세요.</string>
+    <string name="update_invalid">내려받은 파일이 올바른 KTX Driver 업데이트가 아닙니다.</string>
+    <string name="update_install_failed">업데이트가 설치되지 않았습니다. 잠시 후 다시 시도해 주세요.</string>
 </resources>

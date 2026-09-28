@@ -16,8 +16,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 
 /**
- * First-run guide: location "always", notifications, no battery restriction, and letting the
- * browser install app updates. "Allow" walks through whatever is missing; each row can also be
+ * First-run guide: location "always", notifications, no battery restriction, and letting this
+ * app install its own updates. "Allow" walks through whatever is missing; each row can also be
  * tapped on its own. Shown at every launch until everything is done, then never again.
  */
 class SetupActivity : AppCompatActivity() {
@@ -39,7 +39,7 @@ class SetupActivity : AppCompatActivity() {
         refresh()
         if (allowAllRunning) {
             allowAllRunning = false
-            if (!state.updateSettingsOpened) openUpdateSettings()
+            if (!packageManager.canRequestPackageInstalls()) openUpdateSettings()
         }
     }
 
@@ -52,7 +52,6 @@ class SetupActivity : AppCompatActivity() {
         state = SetupState(this)
 
         val list = findViewById<ViewGroup>(R.id.items)
-        val browser = Browser.label(this) ?: getString(R.string.setup_browser_fallback)
         items = listOf(
             Item(
                 addRow(list, R.string.setup_location_title, getString(R.string.setup_location_desc)),
@@ -70,8 +69,8 @@ class SetupActivity : AppCompatActivity() {
                 action = { flow.start(setOf(PermissionFlow.Step.BATTERY)) },
             ),
             Item(
-                addRow(list, R.string.setup_updates_title, getString(R.string.setup_updates_desc, browser)),
-                isDone = { state.updateSettingsOpened },
+                addRow(list, R.string.setup_updates_title, getString(R.string.setup_updates_desc)),
+                isDone = { packageManager.canRequestPackageInstalls() },
                 action = ::openUpdateSettings,
             ),
         )
@@ -160,16 +159,9 @@ class SetupActivity : AppCompatActivity() {
         launchSettings(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
     }
 
-    /** The browser downloads the update APK, so it is the one that needs "install unknown apps". */
+    /** "Install unknown apps" for this app: updates are downloaded and installed in the app. */
     private fun openUpdateSettings() {
-        state.updateSettingsOpened = true
-        val pkg = Browser.packageName(this)
-        val intent = if (pkg != null) {
-            Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$pkg"))
-        } else {
-            Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES)
-        }
-        launchSettings(intent)
+        launchSettings(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName")))
     }
 
     private fun launchSettings(intent: Intent) {
