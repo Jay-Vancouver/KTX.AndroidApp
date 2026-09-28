@@ -1,6 +1,7 @@
 # KTX Driver (Android hybrid app)
 
 Full spec: [ktxhybridapp.txt](ktxhybridapp.txt). This file is a summary of sections 1–5.
+Current status, decisions and next steps: [docs/WIP.md](docs/WIP.md) — read it first in a new session.
 
 ## Session rules
 - Answers, questions and explanations in Korean. Code, identifiers and commit messages in English.
