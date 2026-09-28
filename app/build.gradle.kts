@@ -3,6 +3,13 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+// Release signing comes from ~/.gradle/gradle.properties or environment variables of the same
+// name, never from this repository (docs/SIGNING.md). Without them assembleRelease is unsigned.
+fun signingValue(name: String): String? =
+    providers.gradleProperty(name).orNull ?: providers.environmentVariable(name).orNull
+
+val releaseKeystore = signingValue("KTX_KEYSTORE_FILE")
+
 android {
     namespace = "com.ktxtransport.driver"
     compileSdk = 34
@@ -18,8 +25,20 @@ android {
         buildConfigField("String", "VERSION_URL", "\"https://driver.withktx.com/app/version.json\"")
     }
 
+    signingConfigs {
+        if (releaseKeystore != null) {
+            create("release") {
+                storeFile = file(releaseKeystore)
+                storePassword = signingValue("KTX_KEYSTORE_PASSWORD")
+                keyAlias = signingValue("KTX_KEY_ALIAS")
+                keyPassword = signingValue("KTX_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = signingConfigs.findByName("release")
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
@@ -36,6 +55,16 @@ android {
 
     kotlinOptions {
         jvmTarget = "17"
+    }
+}
+
+// Release APK named for the download page: ktx-driver-<versionName>.apk
+androidComponents {
+    onVariants(selector().withBuildType("release")) { variant ->
+        variant.outputs.forEach { output ->
+            (output as? com.android.build.api.variant.impl.VariantOutputImpl)
+                ?.outputFileName?.set("ktx-driver-${output.versionName.get()}.apk")
+        }
     }
 }
 
