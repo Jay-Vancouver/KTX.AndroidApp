@@ -22,20 +22,22 @@ Built with command-line tools only (JDK 17, Android SDK cmdline-tools, Gradle wr
 
    **Host note (verified on device 2026-09-27):** driver.withktx.com redirects to `https://www.withktx.com/driver/`, and the server builds SMS login links from the request host (`/driver/s/<token>`). So App Links cover both `driver.withktx.com` and `www.withktx.com/driver/`, and the bridge restriction (item 3) must allow `www.withktx.com` pages under `/driver/` as well as `driver.withktx.com`.
 1. **WebView screen** — loads https://driver.withktx.com; persistent cookies (6-month login), camera permission delegation, file chooser, back = WebView history, external links open in browser, User-Agent suffix `KTXDriverApp/<version>`, App Links (autoVerify) for driver.withktx.com.
-2. **Location foreground service** (`foregroundServiceType="location"`) — FusedLocationProviderClient, fallback LocationManager; 60 s high-accuracy while tracking, 5-min heartbeat when stationary.
+2. **Location foreground service** (`foregroundServiceType="location"`) — FusedLocationProviderClient, fallback LocationManager; high-accuracy fix every `interval` (default 60 s), heartbeat every `heartbeat` (default 5 min) when no new fix; both set by the web page via `startTracking` options.
    - Sends OsmAnd format: `POST <url>` form fields `id` (10-digit phone), `lat`, `lon`, `timestamp` (UTC epoch s), `speed` (knots), `bearing`, `altitude`, `accuracy`, `batt` (%). Empty 200 response.
    - Failed sends go to a local queue, resent in order (duplicates are harmless).
    - Persistent notification "KTX: 위치 전송 중" that opens the app; restart on BOOT_COMPLETED if tracking was on.
    - State (on/off, phone, server URL, last sent) in SharedPreferences. The URL comes from `startTracking()` — never hard-code it.
 3. **JS bridge** `KtxAndroidApp` (only exposed to pages on driver.withktx.com):
-   - `startTracking(phone, url)` → `true`/`false` (false: page not allowed, phone not 10 digits, or url not https on withktx.com). Without location permission it saves tracking-on, runs the permission flow, and starts once granted.
+   - `startTracking(phone, url[, options])` → `true`/`false` (false: page not allowed, phone not 10 digits, url not https on withktx.com, or options not valid JSON). Without location permission it saves tracking-on, runs the permission flow, and starts once granted.
+     `options` is a JSON **string** — `JSON.stringify({interval: 30, heartbeat: 300})`, seconds; a JS object arrives as nothing and silently means defaults. interval 10..600 (default 60), heartbeat 60..3600 (default 300, never below interval); out of range is clamped. Each call sets all values (omitted = default); calling again while tracking applies them at once.
    - `stopTracking()`
-   - `status()` → JSON string `{tracking, lastSentAt, permission:"always|whileInUse|denied", battery:"unrestricted|restricted"}`; `tracking` = service actually running, `lastSentAt` = epoch ms of the last position the server accepted or `null`; `"{}"` on a page that is not allowed
+   - `status()` → JSON string `{tracking, lastSentAt, permission:"always|whileInUse|denied", battery:"unrestricted|restricted", interval, heartbeat}`; `tracking` = service actually running, `lastSentAt` = epoch ms of the last position the server accepted or `null`; `"{}"` on a page that is not allowed
    - window event `ktxappstatus` (detail = the status object) after the permission flow and whenever the app returns to the foreground
    - `requestPermissions()` — location "always", then battery-optimization exemption
    - `version()`
    - Bridge names are shared with the TMS server; change both sides together.
 4. **Update check** — on start read https://driver.withktx.com/app/version.json (`{"version","apk","notes"}`); if newer, prompt; "Update" downloads and installs it inside the app (not forced; changed from "open the download link" at the user's request 2026-09-28).
+   **Install detection from the browser**: `<meta-data android:name="asset_statements">` → `@string/asset_statements` declares `https://www.withktx.com` (www, where pages are served — not driver.withktx.com). With the site's `/app/manifest.webmanifest` (`related_applications` = this package) linked from the page, Chrome's `navigator.getInstalledRelatedApps()` returns the app. Verified on device 2026-09-28.
 5. **First-run guide** — location "always", notifications, battery-optimization exemption, "install unknown apps" for KTX Driver itself; do not ask again once granted.
 
 ## Scenario

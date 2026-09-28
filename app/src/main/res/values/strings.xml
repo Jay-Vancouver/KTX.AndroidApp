@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name" translatable="false">KTX Driver</string>
+    <!-- The app's half of the app/site pairing Chrome checks for navigator.getInstalledRelatedApps():
+         the site links /app/manifest.webmanifest (related app = this package) and must be the host the
+         pages are actually served from (www, not driver.withktx.com, which redirects). -->
+    <string name="asset_statements" translatable="false">[{\"relation\": [\"delegate_permission/common.handle_all_urls\"], \"target\": {\"namespace\": \"web\", \"site\": \"https://www.withktx.com\"}}]</string>
     <string name="error_title">Can\'t connect</string>
     <string name="error_message">Check your internet connection and try again.</string>
     <string name="retry">Try again</string>

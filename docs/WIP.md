@@ -1,11 +1,12 @@
 # 작업 현황 (WIP)
 
-마지막 갱신: 2026-09-27. 다음 세션은 이 파일과 [CLAUDE.md](../CLAUDE.md)를 먼저 읽는다.
+마지막 갱신: 2026-09-28. 다음 세션은 이 파일과 [CLAUDE.md](../CLAUDE.md)를 먼저 읽는다.
 원래 지시서는 [ktxhybridapp.txt](../ktxhybridapp.txt)(0절 세션 규칙, 5절 작업 순서).
 
 ## 1. 한 줄 요약
 
-지시서 5절의 1)~9) 단계가 **모두 끝나 GitHub `main`에 push되어 있다** (마지막 커밋 `c9adeb7`).
+지시서 5절의 1)~9) 단계가 **모두 끝나 GitHub `main`에 push되어 있다**. 그 뒤 사용자 요청으로 업데이트를
+브라우저 대신 **앱 안에서 설치**하도록 바꿨고(`258d0cf`), 실기기에서 확인했다.
 앱 쪽 남은 일은 없다. 이제 **TMS 서버 작업**(4절)이 끝나야 [TEST.md](TEST.md) 전체를 실기기로 시험할 수 있다.
 
 ## 2. 세션 규칙 (지시서 0절)
@@ -54,9 +55,11 @@ $env:ANDROID_HOME = [Environment]::GetEnvironmentVariable('ANDROID_HOME','User')
 | 7) 업데이트 확인 | `acb78c6` | 새 버전 안내, Chrome 다운로드, 같은 버전이면 무표시, 12시간 제한 |
 | 8) release 서명, SIGNING.md, assetlinks.json | `e26b25b` | release 빌드·서명 검증(폰 설치는 안 함) |
 | 9) TEST.md | `c9adeb7` | — |
-| 추가) 업데이트를 앱 안에서 설치 | (이 커밋) | **실기기 미확인** — 폰 연결이 끊겨 시험 전에 커밋함 |
+| 추가) 브라우저에서 앱 설치 여부 판별(`asset_statements`, site = `https://www.withktx.com`) | (이 커밋) | 폰 Chrome에서 manifest 링크를 임시로 넣자 `getInstalledRelatedApps()` → `[{"id":"com.ktxtransport.driver","platform":"play","version":"1.0.0"}]`. 운영 페이지에는 아직 manifest 링크가 없음(TMS 배포 필요) |
+| 추가) 전송 간격·하트비트를 startTracking options로 | (이 커밋) | 옵션 해석·clamp·잘못된 JSON 거부·status 값·추적 중 재등록 확인, `interval: 15`로 실제 15초 간격 전송 확인 |
+| 추가) 업데이트를 앱 안에서 설치 | `258d0cf` | 2026-09-28 확인: 1.0.0 → 9.9.9(debug) 앱 내 업데이트 성공, 설치 주체가 `com.ktxtransport.driver`로 바뀜, 설정·권한 유지. 첫 시도는 Play 프로텍트 검증에서 거부(아래 7절) |
 
-**아직 한 번도 확인하지 못한 것** (TEST.md에 항목 있음): **앱 내 업데이트 설치 전체(7절)**, 5분 하트비트(4.3), 실제 재부팅(6.1), 점검 사진 업로드(3.5),
+**아직 한 번도 확인하지 못한 것** (TEST.md에 항목 있음): release APK끼리의 앱 내 업데이트(7절, debug로만 확인), 5분 하트비트(4.3), 실제 재부팅(6.1), 점검 사진 업로드(3.5),
 release APK 설치·업데이트(1절, 7절), App Links 도메인 인증(2.2), 서버 지도에 점 찍힘(3.4 — 시험은 PC 수신기로만 함).
 
 ## 5. 코드 지도 (`app/src/main/java/com/ktxtransport/driver/`)
@@ -86,10 +89,13 @@ debug 전용: `app/src/debug/res/xml/network_security_config.xml`(localhost http
 `window.KtxAndroidApp`, 메인 프레임이 `https://driver.withktx.com/...` 또는 `https://www.withktx.com/driver...`일 때만 동작.
 다른 페이지에서는 `false` / `""` / `"{}"`를 돌려주고 아무것도 하지 않는다.
 
-- `startTracking(phone, url)` → `true|false`. phone은 숫자 10자리(앞의 1, 기호는 앱이 정리). url은 `withktx.com` 도메인 https만.
+- `startTracking(phone, url[, options])` → `true|false`. phone은 숫자 10자리(앞의 1, 기호는 앱이 정리). url은 `withktx.com` 도메인 https만(포트는 URL에 포함 가능).
   위치 권한이 없으면 추적-켜짐을 저장하고 권한 흐름을 띄운 뒤, 허용되면 바로 시작.
+  `options`(2026-09-28 추가)는 **JSON 문자열**: `JSON.stringify({interval: 30, heartbeat: 300})`(초). JS 객체를 그대로 넘기면
+  다리가 받지 못해 조용히 기본값이 된다. interval 10..600(기본 60), heartbeat 60..3600(기본 300, interval보다 짧아지지 않음),
+  범위 밖은 끝값으로 맞춤, JSON이 깨지면 `false`. 호출마다 전체 값을 정하고(생략 = 기본값), 추적 중 다시 부르면 즉시 적용.
 - `stopTracking()`
-- `status()` → JSON 문자열 `{"tracking":bool,"lastSentAt":epoch ms|null,"permission":"always|whileInUse|denied","battery":"unrestricted|restricted"}`.
+- `status()` → JSON 문자열 `{"tracking":bool,"lastSentAt":epoch ms|null,"permission":"always|whileInUse|denied","battery":"unrestricted|restricted","interval":초,"heartbeat":초}`.
   `tracking`은 서비스가 실제로 돌고 있는지, `lastSentAt`은 서버가 마지막으로 받은(2xx) 시각.
 - `requestPermissions()` — 비동기. 끝나면 이벤트로 알림.
 - `version()` → `"1.0.0"`
@@ -103,8 +109,14 @@ debug 전용: `app/src/debug/res/xml/network_security_config.xml`(localhost http
 - **호스트**: `driver.withktx.com`은 모든 경로를 `www.withktx.com/driver/...`로 리다이렉트한다. 서버는 SMS 링크를
   요청 호스트로 만들므로 실제 링크는 `https://www.withktx.com/driver/s/<token>`. 그래서 App Links와 다리 허용 범위가
   두 호스트를 모두 포함한다(지시서는 driver.withktx.com만 언급).
-- **하트비트**: Traccar 설정(`interval=60, heartbeat=300`)과 같게 — 60초마다 보내고, 5분간 새 보고가 없으면 마지막 위치를
-  현재 시각으로 보낸다. 서버 stale 기준은 10분(`TMS_TRACKING_STALE_MINUTES`).
+- **간격과 하트비트**: 기본값은 Traccar 설정(`interval=60, heartbeat=300`)과 같게 — 60초마다 보내고, 5분간 새 보고가 없으면
+  마지막 위치를 현재 시각으로 보낸다. 서버 stale 기준은 10분(`TMS_TRACKING_STALE_MINUTES`). 2026-09-28 사용자 요청으로
+  서버가 `startTracking` options로 바꿀 수 있게 함(앱 업데이트 없이 조정). 서버 URL·포트·ID도 원래부터 웹이 넘기는 값이다.
+  (고정: URL은 withktx.com https만, ID는 전화번호 10자리만, 시작 페이지와 version.json 주소는 빌드 설정.)
+- **삼성: 최근 앱에서 밀어 닫기 — 배터리 예외가 있으면 괜찮고, 없으면 추적이 멈춘다** (2026-09-28 Galaxy S25+ 확인).
+  예외 없음: `removeTask` 직후 프로세스가 서비스째 종료되고 START_STICKY로도 다시 살아나지 않음.
+  예외 있음(`battery: unrestricted`): 밀어 닫아도 프로세스·서비스 유지, 전송 계속.
+  → 첫 실행 안내 3번(배터리 제한 없음)이 필수. 서버 카드도 `status().battery`가 `restricted`면 경고하는 것이 좋다(TMS 작업).
 - **WakeLock**: 추적 중에만 PARTIAL_WAKE_LOCK — 화면이 꺼져도 60초 주기 유지(Traccar Client 기본값과 같음).
 - **업데이트는 앱 안에서 설치**(2026-09-28 사용자 요청으로 브라우저 방식에서 변경). `UpdateInstaller`가 내려받고,
   같은 패키지·같은 서명 키·더 높은 versionCode인지 확인한 뒤 PackageInstaller 세션으로 설치한다. Android 설치 확인 화면은
@@ -119,6 +131,13 @@ debug 전용: `app/src/debug/res/xml/network_security_config.xml`(localhost http
 - **Chrome은 모든 APK 다운로드에 "유해한 파일일 수도 있음" 경고**를 띄운다 → 첫 설치(브라우저 다운로드) 안내에 "무시하고 다운로드".
   업데이트는 앱 안에서 하므로 이 경고가 없다.
 - **재부팅 후에는 잠금을 한 번 풀어야** 추적 재시작(앱이 directBootAware가 아님).
+- **Play 프로텍트**: 처음 보는 APK로 앱 내 업데이트를 하면 설치 확인 뒤 Play 프로텍트 창이 잠깐 뜨고
+  `INSTALL_FAILED_VERIFICATION_FAILURE: Install not allowed`로 거부될 수 있다(2026-09-28 1회 발생, 창 문구는 못 봄).
+  같은 APK로 다시 시도하자 검증 `ALLOW`로 설치됨. 앱은 실패 시 "업데이트가 설치되지 않았습니다" 안내 → 드라이버가 다시 시도.
+  release APK로 재현되는지, 창에 "설치" 버튼이 있는지 TEST.md 7.3에서 확인할 것.
+- **사무실 Wi-Fi에서는 withktx.com에 접속이 안 된다**: 폰이 Wi-Fi일 때 앱이 "연결할 수 없습니다", 이 PC에서도
+  driver.withktx.com 연결 실패. 5G에서는 정상. 서버(24.65.144.62)가 같은 사무실 네트워크에 있어 생기는 헤어핀 NAT 문제로 추정
+  — 앱이 아니라 네트워크 설정 문제. 시험은 모바일 데이터로 하거나, 사무실 라우터의 NAT loopback/내부 DNS를 설정한다.
 
 ## 8. 서명 (자세히: [SIGNING.md](SIGNING.md))
 
@@ -148,10 +167,10 @@ debug 전용: `app/src/debug/res/xml/network_security_config.xml`(localhost http
 
 ## 10. 시험 폰 (사용자 개인 폰)
 
-- Galaxy S25+ (SM-S936W), Android 16, adb serial `R3CY40PJVQW`. 사용자 본인이 드라이버로 로그인되어 있다.
-- 설치된 것: **debug** 빌드 1.0.0. 위치 "항상 허용", 알림, 배터리 예외 허용. 추적 꺼짐.
-  첫 실행 안내는 시험 때문에 미완료 상태 — 다음에 앱을 열면 한 번 더 나온다.
-- adb로 "지원되는 링크 열기"를 켜 둠(`pm set-app-links-user-selection ... true www.withktx.com driver.withktx.com`).
+- Galaxy S25+ (SM-S936W), Android 16, adb serial `R3CY40PJVQW`. Secure Folder(user 150)가 있어 `pm list packages`는 `--user 0`을 붙인다.
+- 2026-09-28: 사용자가 앱을 지웠던 상태여서(로그인 쿠키도 없어짐) **debug 1.0.0을 새로 설치**했다. 로그인 안 됨.
+  권한은 기본값(위치·알림 미허용, 배터리 예외 없음), **KTX Driver의 "알 수 없는 앱 설치"는 허용**(업데이트 시험 때 켬).
+  첫 실행 안내 미완료 — 앱을 열면 나온다. 앱을 새로 설치했으므로 "지원되는 링크 열기" 설정도 초기화됨.
 - Chrome의 "알 수 없는 앱 설치" 스위치는 **켜지 않았다**(사용자 보안 설정이라 건드리지 않음).
 - release로 바꾸려면 debug 앱을 지워야 하고, 그러면 로그인도 지워진다 — 사용자에게 먼저 묻는다.
 
@@ -174,20 +193,25 @@ debug 전용: `app/src/debug/res/xml/network_security_config.xml`(localhost http
 **TMS 세션** (이 저장소가 아니라 TMS 저장소에서, [TEST.md](TEST.md) 0절의 S1~S4)
 1. (S1) 픽업 완료 화면: `if (window.KtxAndroidApp) KtxAndroidApp.startTracking(phone10, "https://www.withktx.com/gps")`.
 2. (S2) 배송 완료 화면: 실린 로드가 없으면 `KtxAndroidApp.stopTracking()`.
-3. UA `KTXDriverApp/`이면 Traccar 안내 카드 대신 앱용 문구, `status()`/`ktxappstatus`로 카드 보강.
+3. UA `KTXDriverApp/`이면 Traccar 안내 카드 대신 앱용 문구, `status()`/`ktxappstatus`로 카드 보강
+   (`battery: "restricted"`나 `permission`이 `always`가 아니면 경고 + `requestPermissions()` 버튼).
+   간격을 바꾸려면 `startTracking`의 세 번째 인자 `JSON.stringify({interval, heartbeat})`.
 4. (S3) `assetlinks.json`을 `driver.withktx.com`과 `www.withktx.com`의 `/.well-known/`에 **리다이렉트 없이** 200 + `application/json`.
    지금 driver.withktx.com은 전부 리다이렉트하므로 nginx 예외 필요.
 5. (S4) `/app/version.json`과 APK 호스팅. 아직 없음(`www.withktx.com/driver/app/version.json`은 404).
    driver.withktx.com 리다이렉트를 거쳐도 앱은 https 리다이렉트를 따라가지만, `/app/`도 예외로 직접 응답하는 편이 확실.
    다른 주소로 정하면 앱의 `VERSION_URL`만 바꾼다.
+5a. 앱 설치 판별: `/app/manifest.webmanifest`와 `/.well-known/assetlinks.json`은 www.withktx.com에 이미 있으나(2026-09-28 확인),
+   **운영 로그인 페이지(`/driver/`)에 `<link rel="manifest" href="/app/manifest.webmanifest">`가 없다** — 템플릿 배포 필요.
+   배포되면 Chrome에서 `navigator.getInstalledRelatedApps()`가 앱을 돌려준다(앱 쪽은 확인 완료).
 6. 드라이버 가이드 Android 판: 3.1·3.3 대신 "APK 설치 + 권한 허용", 첫 설치의 Chrome 경고 "무시하고 다운로드",
    업데이트는 앱의 "업데이트" → Android 확인 화면 "업데이트".
 
-**서버 작업 전에도 할 수 있는 것 (이 저장소)**
-1. 앱 내 업데이트 실기기 시험: versionCode 2 / versionName 9.9.9로 잠깐 바꿔 debug APK를 빌드해 복사하고 되돌린 뒤,
-   1.0.0 debug 설치 → `tools/version_server.ps1 -Version 9.9.9 -ApkPath <9.9.9 apk>` + `adb reverse tcp:8099 tcp:8099`
-   → `--es debug_version_url http://127.0.0.1:8099/app/version.json`로 실행 → 업데이트 → 권한 화면 → 다운로드 → 설치 확인
-   → `dumpsys package com.ktxtransport.driver | grep versionName`이 9.9.9, 로그인 유지 확인 → `adb install -r -d`로 1.0.0 복구.
+**앱 내 업데이트를 다시 시험할 때 (debug, 2026-09-28에 한 절차)**
+versionCode 2 / versionName 9.9.9로 잠깐 바꿔 debug APK를 빌드해 복사하고 되돌린 뒤,
+1.0.0 debug 설치 → `tools/version_server.ps1 -Version 9.9.9 -ApkPath <9.9.9 apk>` + `adb reverse tcp:8099 tcp:8099`
+→ `--es debug_version_url http://127.0.0.1:8099/app/version.json`로 실행 → 업데이트 → 권한 화면 → 다운로드 → 설치 확인
+→ `dumpsys package com.ktxtransport.driver | grep versionName`이 9.9.9 → `adb install -r -d`로 1.0.0 복구.
 
 **서버 작업 후 (이 저장소)**
 1. 사용자 동의 후 debug 앱 삭제 → release APK 설치 → [TEST.md](TEST.md) 전 항목 시험.

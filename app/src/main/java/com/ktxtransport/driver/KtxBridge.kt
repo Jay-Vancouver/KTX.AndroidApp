@@ -12,11 +12,21 @@ import org.json.JSONObject
  */
 class KtxBridge(private val activity: MainActivity) {
 
-    /** Starts sending positions for this driver. False when refused or the arguments are unusable. */
+    /** Starts sending positions for this driver at the default cadence (60 s, heartbeat 300 s). */
     @JavascriptInterface
-    fun startTracking(phone: String?, url: String?): Boolean {
+    fun startTracking(phone: String?, url: String?): Boolean = startTracking(phone, url, null)
+
+    /**
+     * Starts sending positions for this driver. [options] is a JSON **string** (the bridge cannot take
+     * a JS object): `JSON.stringify({interval: 30, heartbeat: 300})`, seconds; interval 10..600,
+     * heartbeat 60..3600, missing keys use the defaults. Calling again while tracking applies the new
+     * values. False when refused or the arguments are unusable (bad phone, url or JSON).
+     */
+    @JavascriptInterface
+    fun startTracking(phone: String?, url: String?, options: String?): Boolean {
         if (!activity.bridgeAllowed) return false
-        if (!LocationService.start(activity, phone, url)) return false
+        val cadence = TrackingState.parseCadence(options) ?: return false
+        if (!LocationService.start(activity, phone, url, cadence)) return false
         // Tracking is saved as on; it begins as soon as location is allowed.
         if (!AppPermissions.hasLocation(activity)) activity.runOnUiThread { activity.startPermissionFlow() }
         return true
@@ -30,7 +40,8 @@ class KtxBridge(private val activity: MainActivity) {
 
     /**
      * JSON: {"tracking": bool, "lastSentAt": epoch ms | null,
-     *        "permission": "always" | "whileInUse" | "denied", "battery": "unrestricted" | "restricted"}
+     *        "permission": "always" | "whileInUse" | "denied", "battery": "unrestricted" | "restricted",
+     *        "interval": seconds, "heartbeat": seconds}
      * `tracking` is whether the service is actually running now.
      */
     @JavascriptInterface
@@ -59,12 +70,15 @@ class KtxBridge(private val activity: MainActivity) {
         const val STATUS_EVENT = "ktxappstatus"
 
         fun statusJson(activity: MainActivity): String {
-            val lastSent = TrackingState(activity).lastSentAt
+            val state = TrackingState(activity)
+            val lastSent = state.lastSentAt
             return JSONObject()
                 .put("tracking", LocationService.isRunning)
                 .put("lastSentAt", if (lastSent > 0) lastSent else JSONObject.NULL)
                 .put("permission", AppPermissions.locationLevel(activity))
                 .put("battery", if (AppPermissions.isBatteryUnrestricted(activity)) "unrestricted" else "restricted")
+                .put("interval", state.intervalSec)
+                .put("heartbeat", state.heartbeatSec)
                 .toString()
         }
     }

@@ -36,9 +36,9 @@ import java.util.Locale
 
 /**
  * Sends the phone's position while the driver carries a load: a high-accuracy fix every
- * 60 seconds, and at least one report every 5 minutes even when no new fix arrives (heartbeat,
- * so the server can tell "parked" from "phone off"). Same cadence as the Traccar Client setup
- * (interval=60, heartbeat=300).
+ * `interval`, and at least one report every `heartbeat` even when no new fix arrives (so the
+ * server can tell "parked" from "phone off"). Both come from startTracking (TrackingState);
+ * the defaults, 60 s and 5 min, match the Traccar Client setup (interval=60, heartbeat=300).
  */
 class LocationService : Service() {
 
@@ -50,6 +50,10 @@ class LocationService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
     private var updatesStarted = false
+
+    // Cadence in use; re-read from TrackingState whenever startTracking is called again.
+    private var intervalMs = TrackingState.DEFAULT_INTERVAL_SEC * 1000L
+    private var heartbeatMs = TrackingState.DEFAULT_HEARTBEAT_SEC * 1000L
 
     private var lastFix: Location? = null
     private var lastQueuedAt = 0L // SystemClock.elapsedRealtime() of the last queued report
@@ -65,7 +69,7 @@ class LocationService : Service() {
     private val heartbeat = object : Runnable {
         override fun run() {
             val fix = lastFix
-            if (fix != null && SystemClock.elapsedRealtime() - lastQueuedAt >= HEARTBEAT_MS) {
+            if (fix != null && SystemClock.elapsedRealtime() - lastQueuedAt >= heartbeatMs) {
                 queue(fix, System.currentTimeMillis())
             } else {
                 FixUploader.flush(this@LocationService) // retry anything left from a failed send
@@ -92,7 +96,7 @@ class LocationService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
-        if (!updatesStarted) startUpdates()
+        if (!updatesStarted) startUpdates() else applyCadence()
         return START_STICKY
     }
 
@@ -153,8 +157,10 @@ class LocationService : Service() {
             return
         }
         updatesStarted = true
+        intervalMs = state.intervalSec * 1000L
+        heartbeatMs = state.heartbeatSec * 1000L
 
-        // Keep the CPU awake between fixes so the 60 s cadence and the heartbeat hold with the screen off.
+        // Keep the CPU awake between fixes so the cadence and the heartbeat hold with the screen off.
         wakeLock = getSystemService(PowerManager::class.java)
             .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "KtxDriver:tracking")
             .apply { acquire() }
@@ -162,26 +168,20 @@ class LocationService : Service() {
         val playServices = GoogleApiAvailability.getInstance()
             .isGooglePlayServicesAvailable(this) == ConnectionResult.SUCCESS
         if (playServices) {
-            val client = LocationServices.getFusedLocationProviderClient(this)
-            fused = client
-            val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, INTERVAL_MS)
-                .setMinUpdateIntervalMillis(INTERVAL_MS)
-                .setWaitForAccurateLocation(false)
-                .build()
-            client.requestLocationUpdates(request, fusedCallback, Looper.getMainLooper())
-            // First report right away rather than after the first interval.
+            fused = LocationServices.getFusedLocationProviderClient(this)
+        } else {
+            locationManager = getSystemService(LocationManager::class.java)
+        }
+        requestUpdates()
+
+        // First report right away rather than after the first interval.
+        fused?.let { client ->
             client.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null).addOnSuccessListener { loc ->
                 if (loc != null) onFix(loc) else client.lastLocation.addOnSuccessListener { it?.let(::onFix) }
             }
-        } else {
-            val lm = getSystemService(LocationManager::class.java)
-            locationManager = lm
-            val providers = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
-                .filter { lm.allProviders.contains(it) }
-            for (provider in providers) {
-                lm.requestLocationUpdates(provider, INTERVAL_MS, 0f, managerListener, Looper.getMainLooper())
-            }
-            providers.mapNotNull { lm.getLastKnownLocation(it) }.maxByOrNull { it.time }?.let(::onFix)
+        }
+        locationManager?.let { lm ->
+            providers(lm).mapNotNull { lm.getLastKnownLocation(it) }.maxByOrNull { it.time }?.let(::onFix)
         }
 
         networkCallback = object : ConnectivityManager.NetworkCallback() {
@@ -191,10 +191,41 @@ class LocationService : Service() {
         handler.postDelayed(heartbeat, CHECK_MS)
     }
 
+    @SuppressLint("MissingPermission")
+    private fun requestUpdates() {
+        fused?.requestLocationUpdates(
+            LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, intervalMs)
+                .setMinUpdateIntervalMillis(intervalMs)
+                .setWaitForAccurateLocation(false)
+                .build(),
+            fusedCallback,
+            Looper.getMainLooper(),
+        )
+        locationManager?.let { lm ->
+            for (provider in providers(lm)) {
+                lm.requestLocationUpdates(provider, intervalMs, 0f, managerListener, Looper.getMainLooper())
+            }
+        }
+    }
+
+    private fun providers(lm: LocationManager): List<String> =
+        listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER).filter { lm.allProviders.contains(it) }
+
+    /** startTracking called again while running: take a changed interval / heartbeat right away. */
+    private fun applyCadence() {
+        val newInterval = state.intervalSec * 1000L
+        heartbeatMs = state.heartbeatSec * 1000L
+        if (newInterval == intervalMs) return
+        intervalMs = newInterval
+        fused?.removeLocationUpdates(fusedCallback)
+        locationManager?.removeUpdates(managerListener)
+        requestUpdates()
+    }
+
     private fun onFix(location: Location) {
         val first = lastQueuedAt == 0L
         // GPS and network providers (fallback path) both report; keep one report per interval.
-        if (!first && SystemClock.elapsedRealtime() - lastQueuedAt < MIN_GAP_MS) {
+        if (!first && SystemClock.elapsedRealtime() - lastQueuedAt < intervalMs * 5 / 6) {
             val prev = lastFix
             if (prev == null || location.accuracy <= prev.accuracy) lastFix = location
             return
@@ -236,10 +267,7 @@ class LocationService : Service() {
         private const val CHANNEL_ID = "tracking"
         private const val NOTIFICATION_ID = 1
 
-        private const val INTERVAL_MS = 60_000L
-        private const val MIN_GAP_MS = 50_000L
-        private const val HEARTBEAT_MS = 5 * 60_000L
-        private const val CHECK_MS = 60_000L
+        private const val CHECK_MS = 60_000L // heartbeat check; the shortest heartbeat allowed is 60 s
         private const val MPS_TO_KNOTS = 1.943844
 
         /** Whether the service is alive in this process (for status()). */
@@ -251,12 +279,19 @@ class LocationService : Service() {
          * Saves the settings as tracking-on and starts the service if location is allowed
          * (otherwise it starts from resumeIfTracking once it is). False when phone or url is unusable.
          */
-        fun start(context: Context, phone: String?, url: String?): Boolean {
+        fun start(
+            context: Context,
+            phone: String?,
+            url: String?,
+            cadence: TrackingState.Cadence = TrackingState.Cadence.DEFAULT,
+        ): Boolean {
             val digits = TrackingState.normalizePhone(phone) ?: return false
             if (!TrackingState.isUsableUrl(url)) return false
             TrackingState(context).apply {
                 this.phone = digits
                 this.url = url!!.trim()
+                intervalSec = cadence.intervalSec
+                heartbeatSec = cadence.heartbeatSec
                 tracking = true
             }
             resumeIfTracking(context)

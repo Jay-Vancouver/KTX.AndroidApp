@@ -151,7 +151,10 @@ class MainActivity : AppCompatActivity() {
     private fun handleDebugIntent(intent: Intent?) {
         if (!BuildConfig.DEBUG || intent == null) return
         when (intent.getStringExtra("debug_tracking")) {
-            "start" -> LocationService.start(this, intent.getStringExtra("phone"), intent.getStringExtra("url"))
+            "start" -> LocationService.start(
+                this, intent.getStringExtra("phone"), intent.getStringExtra("url"),
+                TrackingState.parseCadence(intent.getStringExtra("options")) ?: TrackingState.Cadence.DEFAULT,
+            )
             "stop" -> LocationService.stop(this)
         }
         intent.getStringExtra("debug_version_url")?.let { UpdateChecker.urlOverride = it }
