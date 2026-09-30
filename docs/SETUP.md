@@ -11,8 +11,8 @@ KTX Driver 앱은 VS Code + 명령줄 도구만으로 빌드한다. 아래는 Wi
 | JDK (Eclipse Temurin) | 17 | `C:\Program Files\Eclipse Adoptium\jdk-17.x.x-hotspot` |
 | Android SDK cmdline-tools | latest (13114758) | `%LOCALAPPDATA%\Android\Sdk\cmdline-tools\latest` |
 | platform-tools (adb) | 최신 | `%LOCALAPPDATA%\Android\Sdk\platform-tools` |
-| platforms;android-34 | 34 | `%LOCALAPPDATA%\Android\Sdk\platforms\android-34` |
-| build-tools | 34.0.0 | `%LOCALAPPDATA%\Android\Sdk\build-tools\34.0.0` |
+| platforms;android-36 | 36 | `%LOCALAPPDATA%\Android\Sdk\platforms\android-36` (2026-09-30부터. 34도 설치돼 있으나 쓰지 않음) |
+| build-tools | 36.0.0 (35.0.0은 AGP가 자동 설치) | `%LOCALAPPDATA%\Android\Sdk\build-tools\36.0.0` |
 | Gradle | 8.7 (wrapper) | 저장소의 `gradlew.bat`이 처음 실행 시 자동으로 내려받음 |
 
 ## 1. Git, JDK 17
@@ -56,7 +56,7 @@ PowerShell 파이프(`'y' | sdkmanager ...`)로는 라이선스 동의가 전달
 ```powershell
 1..30 | ForEach-Object { 'y' } | Set-Content -Encoding ascii "$env:TEMP\yes.txt"
 cmd /c "sdkmanager.bat --licenses < %TEMP%\yes.txt"
-cmd /c "sdkmanager.bat platform-tools platforms;android-34 build-tools;34.0.0 < %TEMP%\yes.txt"
+cmd /c "sdkmanager.bat platform-tools platforms;android-36 build-tools;36.0.0 < %TEMP%\yes.txt"
 ```
 
 ## 5. Gradle wrapper
@@ -82,8 +82,8 @@ sdkmanager --list_installed
 ## 7. 빌드와 설치
 
 ```powershell
-.\gradlew.bat assembleDebug
-adb install -r app\build\outputs\apk\debug\app-debug.apk
+.\gradlew.bat assembleDebug      # directDebug + playDebug
+adb install -r app\build\outputs\apk\direct\debug\app-direct-debug.apk
 ```
 
 폰에서 USB 디버깅을 켠 뒤 USB로 연결한다.

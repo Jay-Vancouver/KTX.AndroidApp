@@ -39,7 +39,7 @@ class SetupActivity : AppCompatActivity() {
         refresh()
         if (allowAllRunning) {
             allowAllRunning = false
-            if (!packageManager.canRequestPackageInstalls()) openUpdateSettings()
+            if (UpdateUi.NEEDS_INSTALL_PERMISSION && !packageManager.canRequestPackageInstalls()) openUpdateSettings()
         }
     }
 
@@ -49,10 +49,11 @@ class SetupActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_setup)
+        SystemBars.apply(this, lightBackground = true)
         state = SetupState(this)
 
         val list = findViewById<ViewGroup>(R.id.items)
-        items = listOf(
+        items = listOfNotNull(
             Item(
                 addRow(list, R.string.setup_location_title, getString(R.string.setup_location_desc)),
                 isDone = { AppPermissions.hasBackgroundLocation(this) },
@@ -68,11 +69,16 @@ class SetupActivity : AppCompatActivity() {
                 isDone = { AppPermissions.isBatteryUnrestricted(this) },
                 action = { flow.start(setOf(PermissionFlow.Step.BATTERY)) },
             ),
-            Item(
-                addRow(list, R.string.setup_updates_title, getString(R.string.setup_updates_desc)),
-                isDone = { packageManager.canRequestPackageInstalls() },
-                action = ::openUpdateSettings,
-            ),
+            // direct flavor only: the app installs its own updates (Google Play updates the play build)
+            if (UpdateUi.NEEDS_INSTALL_PERMISSION) {
+                Item(
+                    addRow(list, R.string.setup_updates_title, getString(R.string.setup_updates_desc)),
+                    isDone = { packageManager.canRequestPackageInstalls() },
+                    action = ::openUpdateSettings,
+                )
+            } else {
+                null
+            },
         )
 
         allowButton = findViewById(R.id.allowButton)

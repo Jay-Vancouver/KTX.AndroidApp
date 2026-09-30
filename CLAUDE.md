@@ -17,7 +17,8 @@ Current status, decisions and next steps: [docs/WIP.md](docs/WIP.md) — read it
 - Distribution: APK on the company website (not Google Play). iPhone drivers keep web + Traccar Client.
 
 ## App structure
-Kotlin, minSdk 26, targetSdk 34, package `com.ktxtransport.driver`, app name "KTX Driver".
+Kotlin, minSdk 26, targetSdk/compileSdk 36 (raised from 34 on 2026-09-30 for Google Play), AGP 8.10.1, Gradle 8.11.1, package `com.ktxtransport.driver`, app name "KTX Driver".
+Two product flavors (same package, key and version): **direct** = APK from the company site (in-app updates, `REQUEST_INSTALL_PACKAGES`, direct battery-exemption request; code in `src/direct`), **play** = AAB for Google Play (no self-update, no install/battery-exemption permissions; battery step opens app settings; no-op `UpdateUi` in `src/play`). Both show a background-location disclosure before the location permission dialogs.
 Built with command-line tools only (JDK 17, Android SDK cmdline-tools, Gradle wrapper, adb) — see [docs/SETUP.md](docs/SETUP.md).
 
    **Host note (verified on device 2026-09-27):** driver.withktx.com redirects to `https://www.withktx.com/driver/`, and the server builds SMS login links from the request host (`/driver/s/<token>`). So App Links cover both `driver.withktx.com` and `www.withktx.com/driver/`, and the bridge restriction (item 3) must allow `www.withktx.com` pages under `/driver/` as well as `driver.withktx.com`.
@@ -37,6 +38,7 @@ Built with command-line tools only (JDK 17, Android SDK cmdline-tools, Gradle wr
    - `version()`
    - Bridge names are shared with the TMS server; change both sides together.
 4. **Update check** — on start read https://driver.withktx.com/app/version.json (`{"version","apk","notes"}`); if newer, prompt; "Update" downloads and installs it inside the app (not forced; changed from "open the download link" at the user's request 2026-09-28).
+   **Settings screen** (`SettingsActivity`): opened by a left→right swipe across the top 64 dp of the main screen (that strip's left edge is excluded from the system back gesture). Shows tracking/permission/battery/cadence/version status, "request permissions again", and the server address. Changing the address needs the admin PIN (`KTX_ADMIN_PIN` in `~/.gradle/gradle.properties`; only its SHA-256 is in the APK). The override (`ServerConfig`) replaces START_URL, the update check follows its host (`/app/version.json`), and in-app hosts / bridge / tracking-URL checks also accept that host (tracking: its domain).
    **Install detection from the browser**: `<meta-data android:name="asset_statements">` → `@string/asset_statements` declares `https://www.withktx.com` (www, where pages are served — not driver.withktx.com). With the site's `/app/manifest.webmanifest` (`related_applications` = this package) linked from the page, Chrome's `navigator.getInstalledRelatedApps()` returns the app. Verified on device 2026-09-28.
 5. **First-run guide** — location "always", notifications, battery-optimization exemption, "install unknown apps" for KTX Driver itself; do not ask again once granted.
 
@@ -58,7 +60,9 @@ Built with command-line tools only (JDK 17, Android SDK cmdline-tools, Gradle wr
 
 ## Release
 - Signing, backup, version bump, version.json and assetlinks.json: [docs/SIGNING.md](docs/SIGNING.md). The keystore and its passwords live outside the repo (`~/.gradle/gradle.properties` `KTX_*` or env vars); never commit or print them.
-- `assembleRelease` → `app/build/outputs/apk/release/ktx-driver-<versionName>.apk`.
+- `assembleDirectRelease` → `app/build/outputs/apk/direct/release/ktx-driver-<versionName>.apk` (company site).
+- `bundlePlayRelease` → `app/build/outputs/bundle/playRelease/app-play-release.aab` (Google Play; the agency gets only this). Upload certificate for the agency: `C:\Users\Admin\.ktx-keys\upload_certificate.pem` (public; never send the .jks).
+- `assembleDebug` builds both `directDebug` and `playDebug`.
 
 ## Testing location sending without the production server
 - `tools/gps_receiver.ps1` logs OsmAnd POSTs on `http://127.0.0.1:8099/` to `tools/gps_received.log`; `adb reverse tcp:8099 tcp:8099` lets the phone reach it (debug builds allow cleartext to localhost only).

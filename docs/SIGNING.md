@@ -35,9 +35,20 @@ KTX_KEY_PASSWORD=<비밀번호>
 값이 없으면 `assembleRelease`는 **서명되지 않은 APK**를 만든다(설치 불가). `.gitignore`가 `*.jks`, `*.keystore`,
 `keystore.properties`를 막고 있지만, 커밋 전에 `git status`로 한 번 더 확인한다.
 
+### 관리자 PIN
+
+앱의 설정 화면(상단 좌→우 스와이프)에서 **서버 주소를 바꿀 때 묻는 PIN**도 같은 파일에 둔다.
+
+```properties
+KTX_ADMIN_PIN=<숫자 6자리>
+```
+
+APK에는 PIN의 SHA-256만 들어간다. 값이 없으면 빌드는 `000000`을 쓰고 경고를 낸다. PIN을 바꾸면 새로 빌드해 배포해야 적용된다.
+이 PIN은 드라이버의 실수를 막는 용도이고 강한 보안 수단은 아니다(6자리 숫자는 APK에서 해시를 꺼내면 추측 가능).
+
 ## 3. 백업 (반드시)
 
-백업할 것은 두 가지다: **`ktx-driver.jks` 파일**과 **`gradle.properties`의 KTX_ 네 줄**(비밀번호).
+백업할 것은 두 가지다: **`ktx-driver.jks` 파일**과 **`gradle.properties`의 KTX_ 줄들**(비밀번호, 관리자 PIN).
 
 1. 회사 비밀번호 관리자(1Password, Bitwarden 등)에 항목을 하나 만들고 `.jks` 파일을 첨부, 비밀번호와 alias를 적는다.
 2. 오프라인 사본: USB 드라이브에 `.jks`와 비밀번호를 적은 파일을 넣어 금고 등 PC와 다른 곳에 보관한다.
@@ -60,12 +71,14 @@ KTX_KEY_PASSWORD=<비밀번호>
    `versionCode`가 설치된 것보다 크지 않으면 Android가 업데이트를 거부한다.
 2. 빌드:
    ```powershell
-   .\gradlew.bat assembleRelease
+   .\gradlew.bat assembleDirectRelease bundlePlayRelease
    ```
-   결과: `app\build\outputs\apk\release\ktx-driver-<versionName>.apk`
+   결과:
+   - 홈페이지용 APK: `app\build\outputs\apk\direct\release\ktx-driver-<versionName>.apk`
+   - Google Play용 AAB: `app\build\outputs\bundle\playRelease\app-play-release.aab`
 3. 서명 확인:
    ```powershell
-   & "$env:ANDROID_HOME\build-tools\34.0.0\apksigner.bat" verify --print-certs app\build\outputs\apk\release\ktx-driver-1.0.1.apk
+   & "$env:ANDROID_HOME\build-tools\36.0.0\apksigner.bat" verify --print-certs app\build\outputs\apk\direct\release\ktx-driver-1.0.1.apk
    ```
    `certificate SHA-256 digest`가 1절의 지문(콜론 없이 소문자)과 같아야 한다.
 4. APK를 서버(`driver.withktx.com/app/` 또는 사내 홈페이지)에 올리고, `https://driver.withktx.com/app/version.json`을 고친다.
@@ -74,6 +87,17 @@ KTX_KEY_PASSWORD=<비밀번호>
    ```
    앱은 화면에 나올 때(프로세스당 12시간에 한 번) 이 파일을 읽고, `version`이 더 높으면 업데이트 안내를 띄운다.
 5. `git tag v1.0.1` 후 push.
+
+### Google Play 배포 (대행업체)
+
+- 업체에 보내는 것: **Play용 AAB**(`app-play-release.aab`)만. keystore(.jks)와 비밀번호는 보내지 않는다.
+- 업체가 업로드 키 등록용 인증서를 요구하면: `C:\Users\Admin\.ktx-keys\upload_certificate.pem`(공개 인증서, 보내도 안전).
+  다시 만들려면 `keytool -export -rfc -keystore <jks> -alias ktx-driver -file upload_certificate.pem`.
+- Play 앱 서명에서 **Google이 새 앱 서명 키를 만들면** 드라이버 폰의 앱은 다른 키로 서명된다 →
+  Play Console "앱 무결성 → 앱 서명"의 **앱 서명 키 SHA-256**을 [assetlinks.json](assetlinks.json)에 추가해야 SMS 링크가 앱으로 열린다.
+  또 홈페이지 APK와 Play 앱은 서명이 달라 **한 폰에 번갈아 설치할 수 없다**.
+- 업체에 함께 전달할 것: 심사용 로그인 방법(SMS 로그인), 백그라운드 위치·Foreground Service(location) 시연 영상, 데이터 보안 양식 내용(위치·전화번호·사진), 개인정보처리방침 URL.
+- 새 버전마다 `versionCode`를 올린다(홈페이지 APK와 같은 번호 체계).
 
 ## 6. App Links 인증 (assetlinks.json)
 

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- direct flavor only (APK from the company site); Google Play does not allow these for this app. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- In-app updates: the app installs the APK it downloaded (UpdateInstaller). -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- The first-run guide asks for the battery-optimization exemption directly. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+    <application>
+        <receiver
+            android:name=".InstallResultReceiver"
+            android:exported="false" />
+    </application>
+
+</manifest>

@@ -21,6 +21,13 @@
     <string name="setup_battery_desc">Stops Android from pausing the app on long drives.</string>
     <string name="setup_updates_title">Allow app updates</string>
     <string name="setup_updates_desc">On the next screen turn on the switch for KTX Driver so new versions install right in the app.</string>
+    <string name="disclosure_title">Location sharing</string>
+    <string name="disclosure_message">KTX Driver collects your phone\'s location to share your truck\'s position with KTX Transport while you are carrying a load, including when the app is closed or not in use.\n\nLocation is sent only from pickup until your last delivery of the day, and is used only for tracking your loads.</string>
+    <string name="disclosure_accept">Continue</string>
+    <string name="disclosure_decline">No thanks</string>
+    <string name="battery_guide_title">Battery</string>
+    <string name="battery_guide_message">So that location keeps sending on long drives: on the next screen tap Battery, choose Unrestricted, then come back.</string>
+    <string name="battery_guide_open">Open settings</string>
     <string name="setup_allow">Allow</string>
     <string name="setup_start">Start</string>
     <string name="setup_later">Later</string>
@@ -34,4 +41,41 @@
     <string name="update_failed">The update could not be downloaded. Please try again later.</string>
     <string name="update_invalid">The downloaded file is not a valid KTX Driver update.</string>
     <string name="update_install_failed">The update was not installed. Please try again later.</string>
+
+    <string name="settings_title">App settings</string>
+    <string name="settings_status">Status</string>
+    <string name="settings_tracking">Location sending</string>
+    <string name="settings_on">On</string>
+    <string name="settings_off">Off</string>
+    <string name="settings_last_sent">Last sent</string>
+    <string name="settings_never">Never</string>
+    <string name="settings_location">Location permission</string>
+    <string name="settings_perm_always">Allow all the time</string>
+    <string name="settings_perm_while_in_use">Only while using</string>
+    <string name="settings_perm_denied">Not allowed</string>
+    <string name="settings_notifications">Notifications</string>
+    <string name="settings_allowed">Allowed</string>
+    <string name="settings_not_allowed">Not allowed</string>
+    <string name="settings_battery">Battery</string>
+    <string name="settings_battery_unrestricted">No restriction</string>
+    <string name="settings_battery_restricted">Restricted</string>
+    <string name="settings_cadence">Interval / heartbeat</string>
+    <string name="settings_cadence_value">%1$d s / %2$d s</string>
+    <string name="settings_version">App version</string>
+    <string name="settings_permissions">Request permissions again</string>
+    <string name="settings_server">Server address</string>
+    <string name="settings_server_value" translatable="false">%1$s\n%2$s</string>
+    <string name="settings_server_default">(built-in)</string>
+    <string name="settings_server_custom">(set by administrator)</string>
+    <string name="settings_change_server">Change server address</string>
+    <string name="settings_close">Close</string>
+    <string name="settings_pin_title">Administrator PIN</string>
+    <string name="settings_pin_wrong">Wrong PIN</string>
+    <string name="settings_server_invalid">Enter an address starting with https://</string>
+    <string name="settings_server_checking">Checking the connection…</string>
+    <string name="settings_server_unreachable">Cannot connect to %1$s. Save it anyway?</string>
+    <string name="settings_save">Save</string>
+    <string name="settings_save_anyway">Save anyway</string>
+    <string name="settings_reset_default">Use built-in</string>
+    <string name="settings_server_saved">Server address changed. You may need to sign in again.</string>
 </resources>

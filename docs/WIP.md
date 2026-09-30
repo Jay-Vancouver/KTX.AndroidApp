@@ -26,7 +26,8 @@
 | 커밋 작성자 | `jay` / `system@ktxtransport.com` (저장소 로컬 설정) |
 | push 인증 | Git Credential Manager에 저장됨 — 셸에서 `git push` 가능 |
 | JDK | Temurin 17, `C:\Program Files\Eclipse Adoptium\jdk-17.0.20.101-hotspot` (사용자 환경변수 `JAVA_HOME`) |
-| Android SDK | `C:\Users\Admin\AppData\Local\Android\Sdk` (`ANDROID_HOME`), platform-tools, platforms;android-34, build-tools;34.0.0 |
+| Android SDK | `C:\Users\Admin\AppData\Local\Android\Sdk` (`ANDROID_HOME`), platform-tools, platforms;android-36 (34도 있음), build-tools;36.0.0·35.0.0 |
+| 빌드 | AGP 8.10.1, Gradle 8.11.1, compileSdk/targetSdk 36 (2026-09-30 상향), flavor `direct`/`play` |
 | Gradle | wrapper 8.7, AGP 8.5.2, Kotlin 1.9.24 |
 | git | `C:\Program Files\Git\cmd\git.exe` |
 | TMS 저장소 | `\\wsl.localhost\Ubuntu-24.04\home\tms_user\ktx\tms` (배포판 이름이 `Ubuntu`가 아니라 `Ubuntu-24.04`) |
@@ -55,6 +56,8 @@ $env:ANDROID_HOME = [Environment]::GetEnvironmentVariable('ANDROID_HOME','User')
 | 7) 업데이트 확인 | `acb78c6` | 새 버전 안내, Chrome 다운로드, 같은 버전이면 무표시, 12시간 제한 |
 | 8) release 서명, SIGNING.md, assetlinks.json | `e26b25b` | release 빌드·서명 검증(폰 설치는 안 함) |
 | 9) TEST.md | `c9adeb7` | — |
+| 추가) Play용/홈페이지용 빌드 분리(flavor), targetSdk 36, 위치 고지 창, Play용 배터리 설정 안내 | (이 커밋) | 2026-09-30 S25+(Android 16)에서 release 서명 빌드로 확인: 상태 표시줄(흰 아이콘이 안 보이던 문제 → 파란 배경으로 수정), 웹·네이티브 입력칸 키보드, 뒤로 가기, 고지 창, Play용 배터리 안내→앱 정보→제한 없음, Play용에 설치·배터리 권한 없음. PIN 입력칸 가림 버그 수정 |
+| 추가) 설정 화면(상단 좌→우 스와이프) + 관리자 PIN으로 서버 주소 변경 | (이 커밋) | 2026-09-30 확인: 스와이프로 열림, 상태 값, 틀린 PIN 거부, 맞는 PIN → 주소 입력 창. 실제 주소 변경·저장은 미시험(TEST.md 8.5~8.8) |
 | 추가) 브라우저에서 앱 설치 여부 판별(`asset_statements`, site = `https://www.withktx.com`) | (이 커밋) | 폰 Chrome에서 manifest 링크를 임시로 넣자 `getInstalledRelatedApps()` → `[{"id":"com.ktxtransport.driver","platform":"play","version":"1.0.0"}]`. 운영 페이지에는 아직 manifest 링크가 없음(TMS 배포 필요) |
 | 추가) 전송 간격·하트비트를 startTracking options로 | (이 커밋) | 옵션 해석·clamp·잘못된 JSON 거부·status 값·추적 중 재등록 확인, `interval: 15`로 실제 15초 간격 전송 확인 |
 | 추가) 업데이트를 앱 안에서 설치 | `258d0cf` | 2026-09-28 확인: 1.0.0 → 9.9.9(debug) 앱 내 업데이트 성공, 설치 주체가 `com.ktxtransport.driver`로 바뀜, 설정·권한 유지. 첫 시도는 Play 프로텍트 검증에서 거부(아래 7절) |
@@ -79,6 +82,8 @@ release APK 설치·업데이트(1절, 7절), App Links 도메인 인증(2.2), �
 | `SetupActivity.kt`, `SetupState.kt` | 첫 실행 안내 화면, 완료 기록(SharedPreferences `setup`) |
 | `UpdateChecker.kt` | `version.json` 확인, 버전 비교 |
 | `UpdateInstaller.kt`, `InstallResultReceiver.kt` | 앱 내 업데이트: 다운로드, APK 검증(패키지·서명·versionCode), PackageInstaller 설치, 확인 화면/결과 |
+| `SettingsActivity.kt` | 설정 화면: 상태 표시, 권한 다시 요청, 서버 주소 변경(관리자 PIN, 연결 확인 후 저장) |
+| `ServerConfig.kt`, `KtxApp.kt` | 서버 주소(기본 START_URL 또는 관리자 지정), 업데이트 주소는 그 호스트의 `/app/version.json`. Application에서 초기화 |
 | `Browser.kt` | 기본 브라우저(없으면 Chrome)를 **패키지로 지정**해 열기 |
 
 설정: `app/build.gradle.kts`의 `START_URL`, `VERSION_URL`(buildConfigField), release 서명(`KTX_*`), release APK 이름.
@@ -126,7 +131,12 @@ debug 전용: `app/src/debug/res/xml/network_security_config.xml`(localhost http
 - **Browser.open은 패키지를 지정**: 삼성 폰에서 selector(CATEGORY_APP_BROWSER) 방식은 관계없는 앱까지 나오는 선택 창을
   띄웠다. 그리고 plain ACTION_VIEW는 driver.withktx.com URL이면 App Links로 우리 앱에 돌아온다.
 - **화면 문구**: 기본 영어, 폰 언어가 한국어면 `values-ko`.
-- **라이브러리 버전 고정**: core-ktx 1.13.1, appcompat 1.7.0 — 최신은 compileSdk 35 이상 필요(지시서는 SDK 34).
+- **라이브러리 버전 고정**: core-ktx 1.13.1, appcompat 1.7.0 (compileSdk 36으로 올린 뒤에도 그대로 둠; 올리면 다시 시험).
+- **SDK 34 → 36** (2026-09-30, 사용자 요청으로 Google Play 등록 준비): 지시서의 targetSdk 34보다 우선. 두 flavor에 공통 적용.
+- **flavor 분리**: Play 정책상 Play 앱은 스스로 업데이트할 수 없고 `REQUEST_INSTALL_PACKAGES`를 쓸 수 없다 → 앱 내 업데이트
+  (`UpdateInstaller`, `InstallResultReceiver`, `UpdateUi`)는 `src/direct`, Play용은 빈 `UpdateUi`. 배터리 예외 직접 요청
+  (`REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`)도 Play 제한 권한이라 direct에만 두고, Play용은 안내 창 → 앱 설정(배터리 → 제한 없음).
+- **백그라운드 위치 고지**(Play 요구, 두 빌드 공통): 위치 권한 대화상자 전에 `PermissionFlow`가 고지 창을 띄우고, 거부하면 위치 단계를 건너뛴다.
 - **release minify 끔**: 켜면 `@JavascriptInterface` keep 규칙 필요(`proguard-rules.pro`에 주석으로 준비).
 - **Chrome은 모든 APK 다운로드에 "유해한 파일일 수도 있음" 경고**를 띄운다 → 첫 설치(브라우저 다운로드) 안내에 "무시하고 다운로드".
   업데이트는 앱 안에서 하므로 이 경고가 없다.
@@ -146,7 +156,9 @@ debug 전용: `app/src/debug/res/xml/network_security_config.xml`(localhost http
 - release 인증서 SHA-256 `95:D1:72:23:A3:1F:A7:7B:03:05:DB:9D:BD:77:84:50:FD:D2:43:B0:2C:87:AD:9B:C1:7F:CF:14:DA:B2:51:67`
   → [assetlinks.json](assetlinks.json).
 - **사용자에게 keystore 백업을 요청해 둠**(완료 여부 미확인). 다음 세션에서 한 번 확인할 것.
-- 빌드 결과: `app\build\outputs\apk\release\ktx-driver-1.0.0.apk`(서명됨, git 제외). `assembleRelease`로 다시 만든다.
+- 빌드 결과(git 제외): 홈페이지 APK `app\build\outputs\apk\direct\release\ktx-driver-1.0.0.apk`(`assembleDirectRelease`),
+  Google Play AAB `app\build\outputs\bundle\playRelease\app-play-release.aab`(`bundlePlayRelease`).
+  대행업체용 업로드 인증서 `C:\Users\Admin\.ktx-keys\upload_certificate.pem`(공개 정보).
 
 ## 9. 시험 도구와 방법
 
@@ -168,9 +180,12 @@ debug 전용: `app/src/debug/res/xml/network_security_config.xml`(localhost http
 ## 10. 시험 폰 (사용자 개인 폰)
 
 - Galaxy S25+ (SM-S936W), Android 16, adb serial `R3CY40PJVQW`. Secure Folder(user 150)가 있어 `pm list packages`는 `--user 0`을 붙인다.
-- 2026-09-28: 사용자가 앱을 지웠던 상태여서(로그인 쿠키도 없어짐) **debug 1.0.0을 새로 설치**했다. 로그인 안 됨.
-  권한은 기본값(위치·알림 미허용, 배터리 예외 없음), **KTX Driver의 "알 수 없는 앱 설치"는 허용**(업데이트 시험 때 켬).
-  첫 실행 안내 미완료 — 앱을 열면 나온다. 앱을 새로 설치했으므로 "지원되는 링크 열기" 설정도 초기화됨.
+- 2026-09-30 기준: 사용자가 9/29에 **release APK를 직접 설치**해 두었고(시험 계정 (123) 456-7890로 로그인, 위치 전송 중),
+  그 위에 새 **direct release**(targetSdk 36)를 덮어 설치했다. 위치 항상 허용, 알림, 배터리 제한 없음, 알 수 없는 앱 설치 허용.
+  release 서명이라 **debug APK는 덮어 설치할 수 없다**(지우면 로그인이 사라짐) → 시험은 release 빌드로 한다(DevTools/`cdp.ps1`은 debug 전용이라 못 씀).
+- release 앱 기준 `www.withktx.com` App Link가 **verified**(서버 assetlinks.json 정상).
+- 사무실 Wi-Fi에서는 사이트가 안 열린다 → 시험 때 사용자가 Wi-Fi를 끔(adb `svc wifi disable`은 Android 16에서 안 먹음).
+  화면 꺼짐 방지는 `adb shell svc power stayon usb`로 켜고, 끝나면 `svc power stayon false`로 되돌린다.
 - Chrome의 "알 수 없는 앱 설치" 스위치는 **켜지 않았다**(사용자 보안 설정이라 건드리지 않음).
 - release로 바꾸려면 debug 앱을 지워야 하고, 그러면 로그인도 지워진다 — 사용자에게 먼저 묻는다.
 

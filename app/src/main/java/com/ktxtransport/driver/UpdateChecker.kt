@@ -36,11 +36,16 @@ object UpdateChecker {
             lastCheckAt = 0L
         }
 
+    /** Check again at the next opportunity (the site address changed). */
+    fun reset() {
+        lastCheckAt = 0L
+    }
+
     fun checkIfDue(onUpdate: (Update) -> Unit) {
         val now = SystemClock.elapsedRealtime()
         if (lastCheckAt != 0L && now - lastCheckAt < MIN_INTERVAL_MS) return
         lastCheckAt = now
-        val url = urlOverride ?: BuildConfig.VERSION_URL
+        val url = urlOverride ?: ServerConfig.versionUrl
         executor.execute {
             val update = fetch(url) ?: return@execute
             main.post { onUpdate(update) }

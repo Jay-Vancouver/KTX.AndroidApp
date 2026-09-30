@@ -1,4 +1,4 @@
-package com.ktxtransport.driver
+﻿package com.ktxtransport.driver
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -8,9 +8,12 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.net.Uri
+import android.graphics.Rect
+import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import android.provider.Settings
+import android.view.MotionEvent
 import android.view.View
 import android.webkit.CookieManager
 import android.webkit.GeolocationPermissions
@@ -34,6 +37,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import java.io.File
+import kotlin.math.abs
 
 class MainActivity : AppCompatActivity() {
 
@@ -42,6 +46,16 @@ class MainActivity : AppCompatActivity() {
     private lateinit var errorView: View
 
     private var mainFrameError = false
+
+    // Site address the page was loaded from; a change in SettingsActivity reloads the new one.
+    private var loadedStartUrl = ""
+    private var clearHistoryAfterLoad = false
+
+    // Leftâ†’right swipe across the top strip opens SettingsActivity.
+    private var swipeTracking = false
+    private var swipeTriggered = false
+    private var swipeStartX = 0f
+    private var swipeStartY = 0f
 
     /** Whether the page in the main frame may use the KtxAndroidApp bridge (read on the JavaBridge thread). */
     @Volatile
@@ -92,6 +106,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        SystemBars.apply(this, lightBackground = false) // KTX blue behind the bars, white icons
 
         webView = findViewById(R.id.webView)
         progressBar = findViewById(R.id.progressBar)
@@ -125,8 +140,16 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
+        // The settings swipe starts at the left edge, where gesture navigation's "back" would take it.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            webView.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
+                v.systemGestureExclusionRects = listOf(Rect(0, 0, dp(SWIPE_EDGE_DP), dp(SWIPE_ZONE_DP)))
+            }
+        }
+
+        loadedStartUrl = WebHosts.startUrl
         if (savedInstanceState == null || webView.restoreState(savedInstanceState) == null) {
-            webView.loadUrl(appLinkUrl(intent) ?: WebHosts.startUrl)
+            webView.loadUrl(appLinkUrl(intent) ?: loadedStartUrl)
         }
         // First-run guide on top of the page (which keeps loading behind it) until it is completed.
         if (savedInstanceState == null && !SetupState(this).completed) {
@@ -168,106 +191,57 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         webView.onResume()
+        if (loadedStartUrl != WebHosts.startUrl) {
+            // The administrator changed the server address in SettingsActivity.
+            loadedStartUrl = WebHosts.startUrl
+            clearHistoryAfterLoad = true
+            webView.loadUrl(loadedStartUrl)
+        }
         FixUploader.flush(this) // positions left over from a stopped or killed service
         if (!LocationService.isRunning) LocationService.resumeIfTracking(this)
         dispatchStatus() // the driver may be back from a settings screen
-        UpdateChecker.checkIfDue(::showUpdate)
+        updates.checkIfDue()
     }
 
-    // --- Update (UpdateChecker finds it, UpdateInstaller downloads and installs it) ---
-
-    private var updateDialog: AlertDialog? = null
-    private var pendingUpdate: UpdateChecker.Update? = null
-
-    /** Not forced: "Later" closes it until the next check. */
-    private fun showUpdate(update: UpdateChecker.Update) {
-        if (isFinishing || isDestroyed || updateDialog?.isShowing == true) return
-        val message = update.notes.ifEmpty { getString(R.string.update_message) }
-        updateDialog = AlertDialog.Builder(this)
-            .setTitle(getString(R.string.update_title, update.version))
-            .setMessage(message)
-            .setPositiveButton(R.string.update_now) { _, _ -> startUpdate(update) }
-            .setNegativeButton(R.string.update_later, null)
-            .show()
-    }
-
-    /** "Install unknown apps" for this app itself, asked the first time an update is installed. */
-    private val installPermissionLauncher =
-        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-            val update = pendingUpdate ?: return@registerForActivityResult
-            pendingUpdate = null
-            if (packageManager.canRequestPackageInstalls()) downloadUpdate(update) else showNotice(R.string.update_need_permission)
-        }
-
-    private fun startUpdate(update: UpdateChecker.Update) {
-        if (packageManager.canRequestPackageInstalls()) {
-            downloadUpdate(update)
-            return
-        }
-        pendingUpdate = update
-        try {
-            installPermissionLauncher.launch(
-                Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName"))
-            )
-        } catch (_: ActivityNotFoundException) {
-            pendingUpdate = null
-            showNotice(R.string.update_need_permission)
-        }
-    }
-
-    private fun downloadUpdate(update: UpdateChecker.Update) {
-        val bar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
-            max = 100
-            isIndeterminate = true
-        }
-        val padding = (24 * resources.displayMetrics.density).toInt()
-        val content = FrameLayout(this).apply {
-            setPadding(padding, padding / 2, padding, 0)
-            addView(bar)
-        }
-        var cancelled = false
-        var cancel: (() -> Unit)? = null
-        val dialog = AlertDialog.Builder(this)
-            .setTitle(getString(R.string.update_downloading, update.version))
-            .setView(content)
-            .setCancelable(false)
-            .setNegativeButton(android.R.string.cancel) { _, _ ->
-                cancelled = true
-                cancel?.invoke()
+    /**
+     * A leftâ†’right drag that starts in the top strip opens SettingsActivity. Taps and other
+     * gestures there still reach the page; once the swipe is recognised the page gets a cancel.
+     */
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        when (ev.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                val location = IntArray(2).also { webView.getLocationOnScreen(it) }
+                swipeTracking = ev.rawY - location[1] in 0f..dp(SWIPE_ZONE_DP).toFloat()
+                swipeTriggered = false
+                swipeStartX = ev.rawX
+                swipeStartY = ev.rawY
             }
-            .show()
-
-        cancel = UpdateInstaller.download(this, update.apkUrl,
-            onProgress = { percent ->
-                if (percent >= 0) {
-                    bar.isIndeterminate = false
-                    bar.progress = percent
+            MotionEvent.ACTION_MOVE -> if (swipeTracking && !swipeTriggered) {
+                val dx = ev.rawX - swipeStartX
+                val dy = abs(ev.rawY - swipeStartY)
+                if (dx > webView.width / 4f && dx > dy * 2) {
+                    swipeTriggered = true
+                    val cancel = MotionEvent.obtain(ev).apply { action = MotionEvent.ACTION_CANCEL }
+                    super.dispatchTouchEvent(cancel)
+                    cancel.recycle()
+                    startActivity(Intent(this, SettingsActivity::class.java))
+                    return true
                 }
-            },
-            onDone = { file ->
-                if (isDestroyed) return@download
-                dialog.dismiss()
-                when {
-                    cancelled -> file?.delete()
-                    file == null -> showNotice(R.string.update_failed)
-                    !UpdateInstaller.isValidUpdate(this, file) -> {
-                        file.delete()
-                        showNotice(R.string.update_invalid)
-                    }
-                    !UpdateInstaller.install(this, file) -> showNotice(R.string.update_install_failed)
-                    // else: Android's install confirmation opens via InstallResultReceiver
-                }
-            },
-        )
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                val consumed = swipeTriggered
+                swipeTracking = false
+                swipeTriggered = false
+                if (consumed) return true
+            }
+        }
+        if (swipeTriggered) return true
+        return super.dispatchTouchEvent(ev)
     }
 
-    private fun showNotice(messageRes: Int) {
-        if (isFinishing || isDestroyed) return
-        AlertDialog.Builder(this)
-            .setMessage(messageRes)
-            .setPositiveButton(android.R.string.ok, null)
-            .show()
-    }
+    private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
+
+    private val updates = UpdateUi(this)
 
     override fun onPause() {
         webView.onPause()
@@ -420,7 +394,8 @@ class MainActivity : AppCompatActivity() {
             val uri = request.url
             return when (uri.scheme) {
                 "https" -> if (WebHosts.isAppHost(uri.host)) false else { openExternal(uri); true }
-                "http" -> { openExternal(uri); true }
+                // http only for a debug build's local test site (WebHosts.isAppUrl allows it there)
+                "http" -> if (WebHosts.isAppUrl(uri)) false else { openExternal(uri); true }
                 "intent" -> { openIntentUrl(uri.toString()); true }
                 else -> { openExternal(uri); true } // tel:, sms:, mailto:, geo:, market:
             }
@@ -439,6 +414,11 @@ class MainActivity : AppCompatActivity() {
 
         override fun onPageFinished(view: WebView, url: String?) {
             if (mainFrameError) errorView.visibility = View.VISIBLE
+            if (clearHistoryAfterLoad) {
+                // Back must not return to pages of the previous server.
+                clearHistoryAfterLoad = false
+                view.clearHistory()
+            }
         }
 
         override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
@@ -519,5 +499,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val CAMERA_DIR = "camera"
+        private const val SWIPE_ZONE_DP = 64 // height of the top strip that starts the settings swipe
+        private const val SWIPE_EDGE_DP = 48 // left-edge part of it taken back from the system back gesture
     }
 }
