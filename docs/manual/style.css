@@ -1,0 +1,102 @@
+/* KTX Driver install guide — printed to PDF with Edge (docs/manual/build_pdf.ps1). A4, large type. */
+@page { size: A4; margin: 14mm 14mm 16mm 14mm; }
+
+:root {
+  --blue: #1B2F9E;
+  --red: #D7182A;
+  --green: #1E8E3E;
+  --ink: #1d1d1f;
+  --muted: #5f6368;
+  --line: #d9dce3;
+  --soft: #f3f5fb;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body {
+  margin: 0;
+  font-family: "Malgun Gothic", "맑은 고딕", "Segoe UI", Arial, sans-serif;
+  color: var(--ink);
+  font-size: 12.5pt;
+  line-height: 1.55;
+}
+
+/* Cover */
+.cover { text-align: center; padding-top: 18mm; page-break-after: always; }
+.cover img.logo { width: 62mm; }
+.cover h1 { color: var(--blue); font-size: 30pt; margin: 8mm 0 2mm; }
+.cover .sub { font-size: 15pt; color: var(--muted); margin: 0 0 12mm; }
+.box {
+  text-align: left; border: 2px solid var(--blue); border-radius: 4mm;
+  padding: 5mm 7mm; margin: 0 auto 6mm; max-width: 150mm; background: var(--soft);
+}
+.box h3 { margin: 0 0 2mm; color: var(--blue); font-size: 14pt; }
+.box ul { margin: 0; padding-left: 6mm; }
+.box li { margin: 1mm 0; }
+.fill { display: inline-block; min-width: 95mm; border-bottom: 1.5px solid var(--ink); height: 7mm; vertical-align: bottom; }
+.flow { display: flex; justify-content: center; gap: 2mm; flex-wrap: wrap; margin-top: 6mm; font-size: 11pt; }
+.flow span { background: var(--blue); color: #fff; border-radius: 3mm; padding: 1.5mm 3mm; }
+.flow i { color: var(--muted); font-style: normal; align-self: center; }
+
+/* Sections and steps */
+h2 {
+  color: #fff; background: var(--blue); font-size: 17pt; margin: 0 0 4mm;
+  padding: 2.5mm 5mm; border-radius: 2.5mm; page-break-after: avoid; break-after: avoid;
+}
+/* Wrapper around a section heading and its first steps; page breaks are decided by .step and h2. */
+.head { display: block; }
+.lead { break-after: avoid; page-break-after: avoid; }
+h2 .num { display: inline-block; background: #fff; color: var(--blue); border-radius: 50%;
+  width: 9mm; height: 9mm; line-height: 9mm; text-align: center; margin-right: 3mm; font-size: 14pt; }
+section { margin-bottom: 8mm; }
+section.new-page { page-break-before: always; }
+.lead { margin: 0 0 4mm; color: var(--muted); }
+
+.step { display: flex; gap: 6mm; align-items: flex-start; margin: 0 0 5mm; page-break-inside: avoid; }
+.step .no {
+  flex: 0 0 9mm; height: 9mm; border-radius: 50%; background: var(--red); color: #fff;
+  font-weight: bold; text-align: center; line-height: 9mm; font-size: 13pt;
+}
+.step .text { flex: 1 1 auto; }
+.step .text p { margin: 0 0 1.5mm; }
+.step .shot { flex: 0 0 52mm; }
+.step .shot img { width: 100%; border: 1px solid var(--line); border-radius: 3mm; display: block; }
+.step .shot.small { flex-basis: 50mm; }
+
+.tap { display: inline-block; background: var(--red); color: #fff; font-weight: bold;
+  border-radius: 1.8mm; padding: 0 2mm; white-space: nowrap; }
+.note { background: #fff8e1; border-left: 4px solid #f2a900; padding: 2.5mm 4mm; margin: 2mm 0; border-radius: 1mm; font-size: 11.5pt; }
+.ok { background: #e8f5e9; border-left: 4px solid var(--green); padding: 2.5mm 4mm; margin: 2mm 0; border-radius: 1mm; font-size: 11.5pt; }
+.warn { background: #fdecea; border-left: 4px solid var(--red); padding: 2.5mm 4mm; margin: 2mm 0; border-radius: 1mm; font-size: 11.5pt; }
+
+/* Drawn phone dialogs (English guide: the device screenshots are Korean) */
+.mock { border-radius: 4mm; background: #262626; color: #fff; padding: 5mm 4mm 3mm; font-family: "Segoe UI", Arial, sans-serif; }
+.mock.light { background: #fff; color: var(--ink); border: 1px solid var(--line); }
+.mock .title { font-weight: bold; font-size: 11.5pt; margin-bottom: 2mm; }
+.mock .body { font-size: 10pt; opacity: .85; margin-bottom: 3mm; }
+.mock .btns { display: flex; flex-direction: column; gap: 1.5mm; align-items: center; }
+.mock .btns.row { flex-direction: row; justify-content: flex-end; gap: 2mm; flex-wrap: wrap; }
+.mock .b { font-size: 11pt; padding: 1mm 2.5mm; border-radius: 2mm; white-space: nowrap; }
+.mock .b.hl { outline: 2.5px solid var(--red); outline-offset: 1px; font-weight: bold; }
+.mock .switch { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,.08);
+  border-radius: 3mm; padding: 2.5mm 3mm; margin: 2mm 0; font-size: 11pt; outline: 2.5px solid var(--red); }
+.mock .switch .knob { width: 10mm; height: 5.5mm; border-radius: 3mm; background: #3d7cf5; position: relative; }
+.mock .switch .knob::after { content: ""; position: absolute; right: .6mm; top: .6mm; width: 4.3mm; height: 4.3mm; border-radius: 50%; background: #fff; }
+.mock .radio { display: flex; align-items: center; gap: 2mm; font-size: 11pt; padding: 1.2mm 0; }
+.mock .radio::before { content: ""; width: 3.5mm; height: 3.5mm; border-radius: 50%; border: 1.5px solid #aaa; }
+.mock .radio.on::before { border-color: #3d7cf5; background: radial-gradient(#3d7cf5 45%, transparent 50%); }
+.mock .radio.hl { outline: 2.5px solid var(--red); outline-offset: 1px; border-radius: 1.5mm; }
+.mock .item { font-size: 11pt; padding: 1.2mm 0; }
+.mock .check { color: var(--green); font-weight: bold; }
+.mock .bar { height: 2mm; background: #e3e6ef; border-radius: 1mm; overflow: hidden; margin: 2mm 0; }
+.mock .bar i { display: block; width: 60%; height: 100%; background: var(--blue); }
+.mock .notif { display: flex; gap: 2.5mm; align-items: center; font-size: 11pt; }
+.mock .notif .pin { width: 6mm; height: 6mm; border-radius: 50%; background: var(--blue); }
+
+/* Troubleshooting */
+table.faq { width: 100%; border-collapse: collapse; font-size: 11.5pt; }
+table.faq th, table.faq td { border: 1px solid var(--line); padding: 2.5mm 3mm; vertical-align: top; text-align: left; }
+table.faq th { background: var(--soft); color: var(--blue); width: 38%; }
+table.faq tr { page-break-inside: avoid; }
+
+.footer { margin-top: 6mm; font-size: 10pt; color: var(--muted); text-align: center; }
