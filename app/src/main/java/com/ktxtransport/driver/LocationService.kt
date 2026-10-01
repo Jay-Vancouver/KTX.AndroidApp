@@ -6,6 +6,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.content.res.Configuration
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
@@ -113,10 +114,20 @@ class LocationService : Service() {
         super.onDestroy()
     }
 
-    private fun goForeground(): Boolean {
+    /**
+     * The phone's language changed while tracking: the notification and channel name were built
+     * in the old language and Android keeps showing them, so post them again in the new one.
+     */
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        if (updatesStarted) goForeground(createConfigurationContext(newConfig))
+    }
+
+    /** Starts (or, when already foreground, updates) the foreground notification, in [res]'s language. */
+    private fun goForeground(res: Context = this): Boolean {
         NotificationManagerCompat.from(this).createNotificationChannel(
             NotificationChannelCompat.Builder(CHANNEL_ID, NotificationManagerCompat.IMPORTANCE_LOW)
-                .setName(getString(R.string.tracking_channel))
+                .setName(res.getString(R.string.tracking_channel))
                 .setShowBadge(false)
                 .build()
         )
@@ -127,7 +138,7 @@ class LocationService : Service() {
         )
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_location)
-            .setContentTitle(getString(R.string.tracking_notification))
+            .setContentTitle(res.getString(R.string.tracking_notification))
             .setContentIntent(openApp)
             .setOngoing(true)
             .setShowWhen(false)
