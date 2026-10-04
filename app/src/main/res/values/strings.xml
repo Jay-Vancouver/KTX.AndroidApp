@@ -49,6 +49,10 @@
     <string name="settings_off">Off</string>
     <string name="settings_last_sent">Last sent</string>
     <string name="settings_never">Never</string>
+    <string name="settings_queued">Waiting to send</string>
+    <string name="settings_queued_value">%1$d</string>
+    <string name="settings_last_error">Last send error</string>
+    <string name="settings_no_error">None</string>
     <string name="settings_location">Location permission</string>
     <string name="settings_perm_always">Allow all the time</string>
     <string name="settings_perm_while_in_use">Only while using</string>

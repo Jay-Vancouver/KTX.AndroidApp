@@ -37,6 +37,23 @@ class TrackingState(context: Context) {
         get() = prefs.getLong(KEY_LAST_SENT, 0L)
         set(value) = prefs.edit().putLong(KEY_LAST_SENT, value).apply()
 
+    /** Last failed send ("HTTP 503", "SocketTimeoutException: ...", "stuck 75s, ..."); null after a success. */
+    val lastSendError: String?
+        get() = prefs.getString(KEY_LAST_ERROR, null)
+
+    /** Wall-clock time (epoch ms) of [lastSendError]. */
+    val lastSendErrorAt: Long
+        get() = prefs.getLong(KEY_LAST_ERROR_AT, 0L)
+
+    fun recordSendError(error: String?) {
+        if (error == null) {
+            if (prefs.contains(KEY_LAST_ERROR)) prefs.edit().remove(KEY_LAST_ERROR).remove(KEY_LAST_ERROR_AT).apply()
+        } else {
+            prefs.edit().putString(KEY_LAST_ERROR, error.take(200))
+                .putLong(KEY_LAST_ERROR_AT, System.currentTimeMillis()).apply()
+        }
+    }
+
     /** Report cadence set by the web page through startTracking's options. */
     data class Cadence(val intervalSec: Int, val heartbeatSec: Int) {
         companion object {
@@ -51,6 +68,8 @@ class TrackingState(context: Context) {
         private const val KEY_LAST_SENT = "last_sent_at"
         private const val KEY_INTERVAL = "interval_sec"
         private const val KEY_HEARTBEAT = "heartbeat_sec"
+        private const val KEY_LAST_ERROR = "last_send_error"
+        private const val KEY_LAST_ERROR_AT = "last_send_error_at"
 
         // Defaults match the Traccar Client setup (interval=60, heartbeat=300).
         const val DEFAULT_INTERVAL_SEC = 60

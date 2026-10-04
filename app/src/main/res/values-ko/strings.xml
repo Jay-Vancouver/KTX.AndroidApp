@@ -44,6 +44,10 @@
     <string name="settings_off">꺼짐</string>
     <string name="settings_last_sent">마지막 전송</string>
     <string name="settings_never">없음</string>
+    <string name="settings_queued">대기 중인 위치</string>
+    <string name="settings_queued_value">%1$d건</string>
+    <string name="settings_last_error">마지막 전송 오류</string>
+    <string name="settings_no_error">없음</string>
     <string name="settings_location">위치 권한</string>
     <string name="settings_perm_always">항상 허용</string>
     <string name="settings_perm_while_in_use">앱 사용 중에만</string>

@@ -56,6 +56,8 @@ $env:ANDROID_HOME = [Environment]::GetEnvironmentVariable('ANDROID_HOME','User')
 | 7) 업데이트 확인 | `acb78c6` | 새 버전 안내, Chrome 다운로드, 같은 버전이면 무표시, 12시간 제한 |
 | 8) release 서명, SIGNING.md, assetlinks.json | `e26b25b` | release 빌드·서명 검증(폰 설치는 안 함) |
 | 9) TEST.md | `c9adeb7` | — |
+| 추가) 전송 스레드 감시(watchdog) + 전송 오류 표시 | (이 커밋) | 2026-10-03 알버타 시험: 앱이 40시간 실행 중 17:18부터 2시간 전송이 멈춤(폰 위치·네트워크·서버는 정상, 앱 재시작으로 즉시 회복) → 전송 1건이 60초 넘으면 연결을 끊고 새 스레드로 교체. 실패 원인 로그, 설정 화면에 대기 건수·마지막 오류, `status()`에 `queued`/`lastError`. 데이터 끔 시험: 실패 기록 → 켜자 1초 안에 전송 |
+| 추가) 알림 문구가 폰 언어 변경을 따라감 | `a1b0f97` | 언어를 바꿔도 알림이 시작 때 언어로 남던 문제(onConfigurationChanged에서 다시 게시). 실기기 미확인 |
 | 추가) Play용/홈페이지용 빌드 분리(flavor), targetSdk 36, 위치 고지 창, Play용 배터리 설정 안내 | (이 커밋) | 2026-09-30 S25+(Android 16)에서 release 서명 빌드로 확인: 상태 표시줄(흰 아이콘이 안 보이던 문제 → 파란 배경으로 수정), 웹·네이티브 입력칸 키보드, 뒤로 가기, 고지 창, Play용 배터리 안내→앱 정보→제한 없음, Play용에 설치·배터리 권한 없음. PIN 입력칸 가림 버그 수정 |
 | 추가) 설정 화면(상단 좌→우 스와이프) + 관리자 PIN으로 서버 주소 변경 | (이 커밋) | 2026-09-30 확인: 스와이프로 열림, 상태 값, 틀린 PIN 거부, 맞는 PIN → 주소 입력 창. 실제 주소 변경·저장은 미시험(TEST.md 8.5~8.8) |
 | 추가) 브라우저에서 앱 설치 여부 판별(`asset_statements`, site = `https://www.withktx.com`) | (이 커밋) | 폰 Chrome에서 manifest 링크를 임시로 넣자 `getInstalledRelatedApps()` → `[{"id":"com.ktxtransport.driver","platform":"play","version":"1.0.0"}]`. 운영 페이지에는 아직 manifest 링크가 없음(TMS 배포 필요) |
@@ -208,6 +210,8 @@ debug 전용: `app/src/debug/res/xml/network_security_config.xml`(localhost http
 **TMS 세션** (이 저장소가 아니라 TMS 저장소에서, [TEST.md](TEST.md) 0절의 S1~S4)
 1. (S1) 픽업 완료 화면: `if (window.KtxAndroidApp) KtxAndroidApp.startTracking(phone10, "https://www.withktx.com/gps")`.
 2. (S2) 배송 완료 화면: 실린 로드가 없으면 `KtxAndroidApp.stopTracking()`.
+2a. 드라이버 카드의 "No position yet today"가 UTC 기준 날짜로 보임(2026-10-03 알버타 17:18 MDT 위치가 있는데 19:2x에 "없음") — 표시는 현지(America/Vancouver 등) 날짜로 해야 함.
+2b. 카드에서 `status().queued`/`lastError`로 "폰에 N건 대기 중 / 마지막 오류" 표시 가능(선택).
 3. UA `KTXDriverApp/`이면 Traccar 안내 카드 대신 앱용 문구, `status()`/`ktxappstatus`로 카드 보강
    (`battery: "restricted"`나 `permission`이 `always`가 아니면 경고 + `requestPermissions()` 버튼).
    간격을 바꾸려면 `startTracking`의 세 번째 인자 `JSON.stringify({interval, heartbeat})`.

@@ -41,7 +41,8 @@ class KtxBridge(private val activity: MainActivity) {
     /**
      * JSON: {"tracking": bool, "lastSentAt": epoch ms | null,
      *        "permission": "always" | "whileInUse" | "denied", "battery": "unrestricted" | "restricted",
-     *        "interval": seconds, "heartbeat": seconds}
+     *        "interval": seconds, "heartbeat": seconds,
+     *        "queued": positions waiting on the phone, "lastError": last failed send | null}
      * `tracking` is whether the service is actually running now.
      */
     @JavascriptInterface
@@ -79,6 +80,8 @@ class KtxBridge(private val activity: MainActivity) {
                 .put("battery", if (AppPermissions.isBatteryUnrestricted(activity)) "unrestricted" else "restricted")
                 .put("interval", state.intervalSec)
                 .put("heartbeat", state.heartbeatSec)
+                .put("queued", FixQueue.get(activity).count())
+                .put("lastError", state.lastSendError ?: JSONObject.NULL)
                 .toString()
         }
     }

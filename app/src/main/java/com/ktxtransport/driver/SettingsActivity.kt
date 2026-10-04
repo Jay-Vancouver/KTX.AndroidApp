@@ -61,6 +61,12 @@ class SettingsActivity : AppCompatActivity() {
             R.string.settings_last_sent to
                 if (lastSent > 0) DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.MEDIUM).format(Date(lastSent))
                 else getString(R.string.settings_never),
+            R.string.settings_queued to getString(R.string.settings_queued_value, FixQueue.get(this).count()),
+            R.string.settings_last_error to (
+                tracking.lastSendError?.let { err ->
+                    DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(tracking.lastSendErrorAt)) + " " + err
+                } ?: getString(R.string.settings_no_error)
+                ),
             R.string.settings_location to getString(
                 when (AppPermissions.locationLevel(this)) {
                     "always" -> R.string.settings_perm_always
